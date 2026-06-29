@@ -1,0 +1,24 @@
+{
+  "keting-lyws-57134878_liyuweishiqi-2169-1779939304599": {
+    "id": "keting-lyws-57134878_liyuweishiqi-2169-1779939304599",
+    "name": "每天16:00 打开鲤鱼喂食器",
+    "unitId": "keting-lyws-57134878_liyuweishiqi-2169",
+    "cmd": "ON",
+    "interval": 86400000,
+    "time": "2026-05-28T08:00:00.000Z",
+    "enabled": true,
+    "createdAt": "2026-05-28T03:35:04.599Z",
+    "recurring": true
+  },
+  "keting-lyws-57134878_liyuweishiqi-2169-1779939343194": {
+    "id": "keting-lyws-57134878_liyuweishiqi-2169-1779939343194",
+    "name": "每天08:30 打开鲤鱼喂食器",
+    "unitId": "keting-lyws-57134878_liyuweishiqi-2169",
+    "cmd": "ON",
+    "interval": 86400000,
+    "time": "2026-05-29T00:30:00.000Z",
+    "enabled": true,
+    "createdAt": "2026-05-28T03:35:43.195Z",
+    "recurring": true
+  }
+}

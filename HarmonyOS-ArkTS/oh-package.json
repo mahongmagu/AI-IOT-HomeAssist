@@ -1,0 +1,17 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "IoT远程控制鸿蒙APP",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "@ohos/mqtt": "^1.0.0"
+  },
+  "devDependencies": {},
+  "ohos": {
+    "org": "example",
+    "apiVersion": 12,
+    "releaseType": "Release"
+  }
+}

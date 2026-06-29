@@ -1,0 +1,16 @@
+{
+  "harmony.sdkPath": "C:\\Users\\mahon\\AppData\\Local\\Huawei\\Sdk",
+  "harmony.sdkSearchPaths": [
+    "C:\\Users\\mahon\\AppData\\Local\\Huawei\\Sdk"
+  ],
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "typescript.validate.enable": false,
+  "typescript.suggest.enabled": false
+}
+

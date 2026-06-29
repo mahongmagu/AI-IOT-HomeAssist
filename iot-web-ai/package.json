@@ -1,0 +1,53 @@
+{
+  "name": "iot-web-ai",
+  "version": "2.2.1",
+  "description": "IoT智能控制Web应用 - 支持内外网分离架构和设备类型参数",
+  "main": "server-control-tcp.js",
+  "scripts": {
+    "start": "node server-control-tcp.js",
+    "status": "node server-status-ws.js",
+    "config": "node server-config.js",
+    "home-assistant-AI": "concurrently \"npm:start\" \"npm:status\" \"npm:config\"",
+
+    "pm2-ctl": "pm2 start npm --name AI-CTL-server -- run start",
+    "pm2-sta": "pm2 start npm --name AI-STA-server -- run status",
+    "pm2-cfg": "pm2 start npm --name AI-CFG-server -- run config",
+    "pm2-iot": "pm2 start npm --name AI-iot-Server -- run home-assistant-AI",
+    "pm2-list": "pm2 list",
+    "pm2-logs": "pm2 logs",
+    "pm2-stop": "pm2 delete all",
+
+    "stop-ctl": "pm2 delete AI-CTL-server",
+    "stop-sta": "pm2 delete AI-STA-server",
+    "stop-cfg": "pm2 delete AI-CFG-server",
+    "stop-all": "npm run pm2-stop"
+
+  },
+  "dependencies": {
+    "@langchain/ollama": "^0.0.3",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.10.0",
+    "mqtt": "^5.3.0",
+    "pinyin": "^4.0.0",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "iot",
+    "mqtt",
+    "smart-home",
+    "automation",
+    "ai",
+    "internal-network",
+    "external-network",
+    "control-unit-types"
+  ],
+  "author": "IoT Smart Home System",
+  "license": "MIT"
+}

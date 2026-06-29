@@ -1,0 +1,1 @@
+### 3. 库依赖说明需安装库：ESP8266WiFi/WiFi、PubSubClient、WiFiManager，在Arduino库管理器直接搜索安装即可

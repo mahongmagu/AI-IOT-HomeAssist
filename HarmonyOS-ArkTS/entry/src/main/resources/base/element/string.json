@@ -1,0 +1,33 @@
+{
+  "string": [
+    {
+      "name": "module_name",
+      "value": "entry"
+    },
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Description of the ability."
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "IoT控制"
+    },
+
+    {
+      "name": "entry_desc",
+      "value": "Entry module description"
+    },
+    {
+      "name": "internet_permission_reason",
+      "value": "用于连接IoT设备服务器"
+    },
+    {
+      "name": "audio_permission_reason",
+      "value": "用于AI语音输入功能"
+    }
+  ]
+}

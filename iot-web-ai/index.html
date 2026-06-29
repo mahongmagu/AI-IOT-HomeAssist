@@ -1,0 +1,2095 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IoT设备控制</title>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 15px;
+  padding-bottom: 70px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  touch-action: manipulation;
+}
+
+/* 底部状态栏 */
+.status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 10px 20px;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
+  z-index: 100;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-label {
+  color: #666;
+  font-size: 11px;
+}
+
+.status-value {
+  font-weight: 600;
+  color: #333;
+  font-size: 11px;
+}
+
+.ws-status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.ws-connected { 
+  background: #28a745; 
+  box-shadow: 0 0 5px #28a745; 
+}
+.ws-disconnected { 
+  background: #dc3545; 
+  box-shadow: 0 0 5px #dc3545; 
+}
+
+/* 设备组网格 */
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 15px;
+}
+
+/* 设备组卡片 */
+.device-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  overflow: hidden;
+  position: relative;
+  min-height: 130px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.device-card:active {
+  transform: scale(0.97);
+}
+
+/* 设备组图标区域 */
+.device-icon {
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-size: 40px;
+  transition: background-color 0.3s ease;
+}
+
+.device-icon.green {
+  background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+}
+
+.device-icon.orange {
+  background: linear-gradient(135deg, #fd7e14 0%, #e67200 100%);
+}
+
+.device-icon.black {
+  background: linear-gradient(135deg, #343a40 0%, #212529 100%);
+}
+
+.device-icon.light-gray {
+  background: linear-gradient(135deg, #adb5bd 0%, #6c757d 100%);
+}
+
+/* 离线设备样式 */
+.device-icon.offline {
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  filter: grayscale(100%);
+}
+
+.device-card.offline {
+  opacity: 0.6;
+}
+
+.device-card.offline .device-display-name {
+  color: #888;
+}
+
+/* 电源按钮 */
+.power-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.92);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    inset 0 1px 2px rgba(0,0,0,0.05),
+    0 0 0 6px rgba(255,255,255,0.35),
+    0 0 0 12px rgba(255,255,255,0.2),
+    0 2px 8px rgba(0,0,0,0.15);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  font-size: 22px;
+}
+
+/* 设备组信息 */
+.device-info {
+  padding: 10px;
+  text-align: center;
+}
+
+.device-display-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.device-location {
+  font-size: 11px;
+  color: #666;
+  margin-top: 3px;
+}
+
+/* 设备详情页面 */
+.detail-page {
+  display: none;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.back-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  font-size: 18px;
+}
+
+.detail-title {
+  background: rgba(255,255,255,0.95);
+  padding: 15px 20px;
+  border-radius: 12px;
+  flex: 1;
+}
+
+.detail-title h2 {
+  font-size: 18px;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.detail-title p {
+  color: #666;
+  font-size: 12px;
+}
+
+/* 设备单元卡片 */
+.unit-card {
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.unit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.unit-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.unit-type {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+}
+
+.unit-type.control { background: #007bff; color: white; }
+.unit-type.state { background: #28a745; color: white; }
+.unit-type.text { background: #6c757d; color: white; }
+.unit-type.data { background: #fd7e14; color: white; }
+
+.unit-status {
+  margin-bottom: 12px;
+}
+
+.status-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.status-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.status-value.on { color: #28a745; }
+.status-value.off { color: #dc3545; }
+
+.unit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.unit-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.unit-btn.on { background: #28a745; color: white; }
+.unit-btn.off { background: #dc3545; color: white; }
+.unit-btn.query { background: #17a2b8; color: white; }
+.unit-btn.edit { background: #6c757d; color: white; }
+
+/* 定时任务列表 */
+.unit-schedules {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e9ecef;
+}
+
+.unit-schedules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+}
+
+.add-schedule-btn {
+  font-size: 11px;
+  color: #007bff;
+  cursor: pointer;
+}
+
+.add-schedule-btn:hover {
+  text-decoration: underline;
+}
+
+.schedule-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.schedule-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.schedule-info {
+  flex: 1;
+  font-size: 11px;
+  color: #333;
+}
+
+.schedule-cmd {
+  font-weight: 600;
+  color: #007bff;
+}
+
+.schedule-time {
+  color: #666;
+}
+
+.schedule-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.schedule-action-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.schedule-action-btn.edit {
+  background: #007bff;
+  color: white;
+}
+
+.schedule-action-btn.delete {
+  background: #dc3545;
+  color: white;
+}
+
+.schedule-action-btn.enable {
+  background: #28a745;
+  color: white;
+}
+
+.schedule-action-btn.disable {
+  background: #6c757d;
+  color: white;
+}
+
+.schedule-disabled {
+  color: #dc3545;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+/* AI控制面板 */
+.ai-panel {
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.ai-panel h3 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.ai-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.ai-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.ai-result {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #333;
+}
+
+/* 长按菜单 */
+.longpress-menu {
+  position: fixed;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  z-index: 1000;
+  min-width: 180px;
+  display: none;
+}
+
+.menu-header {
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 10px 10px 0 0;
+  font-weight: 600;
+  color: #333;
+  font-size: 13px;
+}
+
+.menu-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 13px;
+  color: #333;
+}
+
+.menu-item:hover {
+  background: #f8f9fa;
+}
+
+/* 定时设置弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 15px;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.modal-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.form-select,
+.form-input,
+.form-time {
+  width: 100%;
+  padding: 10px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.form-select:focus,
+.form-input:focus,
+.form-time:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.repeat-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.repeat-option {
+  padding: 6px 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 16px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.repeat-option.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.time-picker {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.time-picker input {
+  width: calc(50% - 4px);
+}
+
+.time-separator {
+  font-size: 20px;
+  font-weight: 300;
+  color: #999;
+}
+
+.cmd-options {
+  display: flex;
+  gap: 8px;
+}
+
+.cmd-option {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.cmd-option.on.active {
+  border-color: #28a745;
+  background: #d4edda;
+  color: #155724;
+}
+
+.cmd-option.off.active {
+  border-color: #dc3545;
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.modal-footer {
+  padding: 12px 20px;
+  background: #f8f9fa;
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-secondary {
+  background: #e9ecef;
+  color: #666;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .device-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .device-card {
+    min-height: 120px;
+  }
+  
+  .device-icon {
+    height: 80px;
+    font-size: 28px;
+  }
+  
+  .power-btn {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .status-bar {
+    padding: 8px 15px;
+  }
+}
+</style>
+</head>
+<body>
+<!-- 登录页面 -->
+<div id="login-page" style="display:block;">
+  <div style="max-width:320px;margin:100px auto;">
+    <div style="background:rgba(255,255,255,0.95);border-radius:20px;padding:30px;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+      <div style="text-align:center;margin-bottom:25px;">
+        <div style="font-size:50px;margin-bottom:15px;">🔐</div>
+        <h2 style="color:#333;margin-bottom:5px;">IoT设备控制</h2>
+        <p style="color:#666;font-size:14px;">请登录以访问系统</p>
+      </div>
+      
+      <div style="margin-bottom:15px;">
+        <label style="display:block;color:#333;font-size:13px;margin-bottom:6px;">用户名</label>
+        <input type="text" id="login-username" placeholder="请输入用户名" 
+               style="width:100%;padding:14px;border:2px solid #e9ecef;border-radius:10px;font-size:15px;">
+      </div>
+      
+      <div style="margin-bottom:20px;">
+        <label style="display:block;color:#333;font-size:13px;margin-bottom:6px;">密码</label>
+        <input type="password" id="login-password" placeholder="请输入密码" 
+               style="width:100%;padding:14px;border:2px solid #e9ecef;border-radius:10px;font-size:15px;">
+      </div>
+      
+      <button id="login-btn" onclick="login()" 
+              style="width:100%;padding:15px;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;">
+        登录
+      </button>
+      
+      <div id="login-error" style="display:none;color:#dc3545;text-align:center;margin-top:15px;font-size:14px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 设备总览页面 -->
+<div id="overview-page" style="display:none;">
+  <div id="device-grid" class="device-grid">
+    <!-- 设备组卡片将动态生成 -->
+  </div>
+  
+  <!-- AI控制面板 -->
+  <div class="ai-panel">
+    <h3>🤖 AI语音文字控制</h3>
+    <input class="ai-input" id="ai-text" placeholder="请输入指令：打开扫地机/关闭风扇...">
+    <button class="btn btn-primary" onclick="sendAi()">发送给AI</button>
+    <div class="ai-result" id="ai-result"></div>
+  </div>
+</div>
+
+<!-- 设备详情页面 -->
+<div id="detail-page" class="detail-page">
+  <div class="detail-header">
+    <div class="back-btn" onclick="showOverviewPage()">←</div>
+    <div class="detail-title">
+      <h2 id="detail-title">设备组详情</h2>
+      <p id="detail-id">设备ID: </p>
+    </div>
+  </div>
+  
+  <div id="unit-list">
+    <!-- 设备单元列表 -->
+  </div>
+</div>
+
+<!-- 底部状态栏 -->
+<div class="status-bar">
+  <div class="status-item">
+    <span class="status-label">设备组数:</span>
+    <span class="status-value" id="total-groups">0</span>
+  </div>
+  <div class="status-item">
+    <span class="status-label">在线设备:</span>
+    <span class="status-value" id="online-devices">0</span>
+  </div>
+  <div class="status-item">
+    <span class="status-label">控制连接:</span>
+    <span class="status-value" id="control-status">未知</span>
+  </div>
+  <div class="status-item">
+    <span class="status-label">状态连接:</span>
+    <span class="status-value" id="ws-connection-status">未知</span>
+    <span class="ws-status-indicator ws-disconnected" id="ws-status-indicator"></span>
+  </div>
+</div>
+
+<!-- 长按菜单 -->
+<div id="longpress-menu" class="longpress-menu">
+  <div class="menu-header" id="menu-header">设备ID</div>
+  <div class="menu-item" id="menu-schedule">⏰ 定时设置</div>
+</div>
+
+<!-- 定时设置弹窗 -->
+<div id="schedule-modal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span class="modal-title">定时设置</span>
+      <div class="modal-close" id="modal-close-btn">×</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">目标设备单元</label>
+        <select class="form-select" id="schedule-unit"></select>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">定时类型</label>
+        <select class="form-select" id="schedule-type">
+          <option value="once">一次性（指定时间）</option>
+          <option value="daily">每天</option>
+          <option value="weekly">每周</option>
+          <option value="interval">重复周期</option>
+        </select>
+      </div>
+      
+      <div class="form-group" id="time-group">
+        <label class="form-label">定时时间</label>
+        <input type="time" class="form-time" id="schedule-time" style="width:100%;">
+      </div>
+      
+      <div class="form-group" id="week-group" style="display:none;">
+        <label class="form-label">选择星期</label>
+        <div class="repeat-options" id="week-days">
+          <span class="repeat-option" data-day="0">周日</span>
+          <span class="repeat-option" data-day="1">周一</span>
+          <span class="repeat-option" data-day="2">周二</span>
+          <span class="repeat-option" data-day="3">周三</span>
+          <span class="repeat-option" data-day="4">周四</span>
+          <span class="repeat-option" data-day="5">周五</span>
+          <span class="repeat-option" data-day="6">周六</span>
+        </div>
+      </div>
+      
+      <div class="form-group" id="interval-group" style="display:none;">
+        <label class="form-label">重复周期（分钟）</label>
+        <input type="number" class="form-input" id="schedule-interval" min="1" value="60">
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">执行命令</label>
+        <div class="cmd-options">
+          <div class="cmd-option on active" id="cmd-on">开启 (ON)</div>
+          <div class="cmd-option off" id="cmd-off">关闭 (OFF)</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-cancel">取消</button>
+      <button class="btn btn-primary" id="btn-save">保存设置</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============== 核心修复：UTC时间转本地时间显示 ==============
+// 后端返回的 ISO UTC 时间字符串 → 转为本地 时:分
+function utcToLocalTime(isoString) {
+  if (!isoString) return "00:00";
+  const date = new Date(isoString);
+  // 用本地时区获取小时、分钟
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+// 周任务：把后端存储的周几 + UTC时间 → 转为本地时间展示
+function formatWeekTask(daysOfWeek, utcTime) {
+  const localTime = utcToLocalTime(utcTime);
+  const weekMap = {0:'周日',1:'周一',2:'周二',3:'周三',4:'周四',5:'周五',6:'周六'};
+  const weekText = daysOfWeek.map(d => weekMap[d] || d).join('、');
+  return `每周 ${weekText} ${localTime}`;
+}
+
+// 天任务：把后端UTC时间 → 转为本地时间展示
+function formatDayTask(utcTime) {
+  const localTime = utcToLocalTime(utcTime);
+  return `每天 ${localTime}`;
+}
+
+const api = '/api';
+let wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8084`;
+
+let ws = null;
+let isAuthenticated = false;
+
+// 页面加载时自动检查认证配置
+async function checkAuthConfig() {
+  try {
+    const response = await fetch('/api/auth/config');
+    const result = await response.json();
+    
+    if (result.code === 200) {
+      if (result.autoAuthSuccess) {
+        // 环境变量凭据自动认证成功，直接进入系统
+        console.log('[认证] 环境变量凭据自动认证成功，进入系统');
+        isAuthenticated = true;
+        document.getElementById('login-page').style.display = 'none';
+        document.getElementById('overview-page').style.display = 'block';
+        initConfig();
+        return;
+      }
+      
+      // 需要手动认证
+      console.log('[认证] 需要手动认证');
+      
+      if (result.hasCredentials && result.username) {
+        // 环境变量配置了凭据但认证失败
+        document.getElementById('login-username').value = result.username;
+        document.getElementById('login-error').textContent = '环境变量配置的凭据认证失败，请手动输入正确凭据';
+        document.getElementById('login-error').style.display = 'block';
+      }
+      // 否则显示空白登录框（凭据为空的情况）
+    }
+  } catch (error) {
+    console.error('[认证] 获取配置失败:', error);
+    // 获取配置失败，显示登录框
+  }
+}
+
+// 登录函数
+async function login() {
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  const errorEl = document.getElementById('login-error');
+  
+  if (!username || !password) {
+    errorEl.textContent = '请输入用户名和密码';
+    errorEl.style.display = 'block';
+    return;
+  }
+  
+  errorEl.style.display = 'none';
+  
+  try {
+    const response = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    
+    const result = await response.json();
+    
+    if (result.code === 200) {
+      isAuthenticated = true;
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('overview-page').style.display = 'block';
+      initConfig();
+    } else {
+      errorEl.textContent = result.msg || '登录失败';
+      errorEl.style.display = 'block';
+    }
+  } catch (error) {
+    errorEl.textContent = '登录失败：' + error.message;
+    errorEl.style.display = 'block';
+  }
+}
+
+// 初始化时获取服务端配置
+async function initConfig() {
+  try {
+    const response = await fetch('/api/config');
+    const config = await response.json();
+    
+    // 添加这一行 ↓
+    allDeviceConfigs = config.configs || {};
+    
+    if (config.wsPort) {
+      wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:${config.wsPort}`;
+      console.log('[配置] WebSocket端口已更新为:', config.wsPort);
+    }
+  } catch (error) {
+    console.warn('[配置] 获取配置失败，使用默认端口:', wsUrl);
+  }
+  connectWebSocket();
+}
+
+
+// 页面加载时执行
+checkAuthConfig();
+let currentView = 'overview';
+let currentDeviceGroup = null;
+let allDevices = {};
+let allDeviceConfigs = {};
+// 防抖计时器，避免 WebSocket 高频更新导致频繁请求后端（429）
+let scheduleListRefreshTimer = null;
+
+// 长按状态管理
+let pressStartTime = 0;
+let pressGroup = null;
+let longpressTimer = null;
+let longpressTriggered = false;
+let isTouchDevice = false;
+let menuVisible = false;  // 新增：菜单可见状态
+
+// 图标列表
+const icons = ['💡', '🔦', '🛋️', '🏠', '🔌', '📺', '🎚️', '🌡️', '🎛️', '💻', '🖨️', '📡'];
+
+function getDeviceIcon(groupName) {
+  const index = groupName.length % icons.length;
+  return icons[index];
+}
+
+function connectWebSocket() {
+  try {
+    ws = new WebSocket(wsUrl);
+    ws.onopen = () => updateWsConnectionStatus(true);
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === 'state-update') {
+          const unitId = message.device.unit;
+          
+          // 更新设备在线状态
+          if (message.device.online !== undefined) {
+            deviceOnlineStatus[unitId] = message.device.online;
+          } else {
+            // 如果没有明确的在线状态，根据状态值判断
+            deviceOnlineStatus[unitId] = message.state !== 'OFFLINE';
+          }
+          
+          let foundGroup = null;
+          
+          for (const [groupName, config] of Object.entries(allDeviceConfigs)) {
+            if (config.units?.find(u => u.id === unitId)) {
+              foundGroup = groupName;
+              break;
+            }
+          }
+          
+          const deviceKey = foundGroup ? 
+            `${foundGroup}/${allDeviceConfigs[foundGroup].id || foundGroup}/relay/${unitId}` : 
+            `unknown/${unitId}/relay/${unitId}`;
+          
+          allDevices[deviceKey] = {
+            state: message.state,
+            unitType: message.device.unitType || 'control',
+            topicType: message.device.topicType || 'state',
+            timestamp: message.timestamp,
+            online: deviceOnlineStatus[unitId]
+          };
+          
+          if (currentView === 'overview') renderDeviceGrid();
+          else if (currentDeviceGroup) {
+            // 防抖：在收到一系列快速更新时，延迟 800ms 后再刷新任务列表
+            if (scheduleListRefreshTimer) clearTimeout(scheduleListRefreshTimer);
+            scheduleListRefreshTimer = setTimeout(() => {
+              loadDeviceDetail(currentDeviceGroup);
+            }, 800);
+          }
+        }
+      } catch (e) { console.error('WebSocket消息处理失败:', e); }
+    };
+    ws.onclose = () => {
+      updateWsConnectionStatus(false);
+      setTimeout(connectWebSocket, 3000);
+    };
+    ws.onerror = () => updateWsConnectionStatus(false);
+  } catch (e) { console.error('WebSocket连接失败:', e); }
+}
+
+function updateWsConnectionStatus(connected) {
+  const el = document.getElementById('ws-connection-status');
+  const indicator = document.getElementById('ws-status-indicator');
+  el.textContent = connected ? '已连接' : '未连接';
+  indicator.className = connected ? 'ws-status-indicator ws-connected' : 'ws-status-indicator ws-disconnected';
+}
+
+// 设备在线状态缓存 { unitId: boolean }
+let deviceOnlineStatus = {};
+
+function getGroupStatusColor(groupName) {
+  const config = allDeviceConfigs[groupName];
+  if (!config?.units?.length) return 'light-gray';
+  
+  const controlUnits = config.units.filter(u => u.type === 'control');
+  if (!controlUnits.length) return 'light-gray';
+  
+  const deviceId = config.id || groupName;
+  
+  // 检查是否有离线设备（状态为OFFLINE或online为false）
+  const offlineCount = controlUnits.filter(unit => {
+    const key = `${groupName}/${deviceId}/relay/${unit.id}`;
+    const state = allDevices[key]?.state;
+    const online = deviceOnlineStatus[unit.id];
+    // 状态为OFFLINE或明确标记为离线
+    return state === 'OFFLINE' || (online !== undefined && !online);
+  }).length;
+  
+  if (offlineCount > 0) return 'offline';
+  
+  // 检查ON状态数量
+  const onCount = controlUnits.filter(unit => {
+    const key = `${groupName}/${deviceId}/relay/${unit.id}`;
+    return allDevices[key]?.state === 'ON';
+  }).length;
+  
+  if (onCount === controlUnits.length) return 'green';
+  if (onCount > 0) return 'orange';
+  return 'black';
+}
+
+function renderDeviceGrid() {
+  const grid = document.getElementById('device-grid');
+  const groupNames = Object.keys(allDeviceConfigs).filter(k => k !== 'lastUpdated');
+  
+  if (!groupNames.length) {
+    grid.innerHTML = '<p style="color:white;text-align:center;padding:20px;">暂无设备组</p>';
+    return;
+  }
+  
+  let html = '';
+  for (const groupName of groupNames) {
+    const config = allDeviceConfigs[groupName];
+    const color = getGroupStatusColor(groupName);
+    const icon = getDeviceIcon(groupName);
+    const hasControlUnit = config.units?.some(u => u.type === 'control');
+    const isOffline = color === 'offline';
+    
+    html += `
+      <div class="device-card ${isOffline ? 'offline' : ''}" 
+           data-group="${groupName}"
+           ontouchstart="onPressStart(event, '${groupName}')"
+           ontouchend="onPressEnd(event)"
+           ontouchcancel="onPressCancel()"
+           onmousedown="onPressStart(event, '${groupName}')"
+           onmouseup="onPressEnd(event)"
+           onmouseleave="onPressCancel()">
+        <div class="device-icon ${color}">
+          ${icon}
+          ${hasControlUnit && !isOffline ? '<div class="power-btn" onclick="toggleAllUnits(event, \'' + groupName + '\')">🔘</div>' : ''}
+        </div>
+        <div class="device-info">
+          <div class="device-display-name">${config.displayName || groupName}</div>
+          ${config.location ? `<div class="device-location">📍 ${config.location}</div>` : ''}
+          ${isOffline ? '<div class="device-location" style="color:#dc3545;font-size:10px;margin-top:2px;">⚠️ 离线</div>' : ''}
+        </div>
+      </div>
+    `;
+  }
+  
+  grid.innerHTML = html;
+  document.getElementById('total-groups').textContent = groupNames.length;
+  
+  let onlineCount = 0;
+  let offlineCount = 0;
+  for (const groupName of groupNames) {
+    const config = allDeviceConfigs[groupName];
+    if (config.units) {
+      const deviceId = config.id || groupName;
+      config.units.forEach(unit => {
+        const key = `${groupName}/${deviceId}/relay/${unit.id}`;
+        if (allDevices[key]?.state === 'ON') onlineCount++;
+        if (allDevices[key]?.state === 'OFFLINE' || (deviceOnlineStatus[unit.id] === false)) offlineCount++;
+      });
+    }
+  }
+  document.getElementById('online-devices').textContent = onlineCount;
+  
+  // 更新底部状态栏的在线设备数（排除离线设备）
+  const totalUnits = Object.keys(deviceOnlineStatus).length;
+  const trulyOnlineCount = totalUnits - offlineCount;
+  document.getElementById('online-devices').textContent = trulyOnlineCount > 0 ? trulyOnlineCount : '离线设备: ' + offlineCount;
+}
+
+// ============ 通用按压事件处理（支持触摸和鼠标） ============
+
+function onPressStart(event, groupName) {
+  if (event.touches) {
+    isTouchDevice = true;
+  }
+  
+  // 如果菜单已经显示，不处理新的按压
+  if (menuVisible) {
+    return;
+  }
+  
+  pressStartTime = Date.now();
+  pressGroup = groupName;
+  longpressTriggered = false;
+  
+  longpressTimer = setTimeout(() => {
+    handleLongpress(groupName, event);
+  }, 400);
+}
+
+function onPressEnd(event) {
+  // 清除长按计时器
+  if (longpressTimer) {
+    clearTimeout(longpressTimer);
+    longpressTimer = null;
+  }
+  
+  // 如果长按已经触发并显示了菜单，不做任何操作，让菜单保持显示
+  if (longpressTriggered && menuVisible) {
+    // 阻止事件传播，防止触发click事件关闭菜单
+    if (event) {
+      event.stopPropagation();
+    }
+    return;
+  }
+  
+  // 如果长按没有触发，检查是否是短按点击
+  if (!longpressTriggered) {
+    const pressDuration = Date.now() - pressStartTime;
+    
+    // 短按触发点击（支持触摸和鼠标设备）
+    if (pressDuration < 400 && pressGroup) {
+      handleClick(pressGroup);
+    }
+  }
+  
+  pressGroup = null;
+}
+
+function onPressCancel() {
+  if (longpressTimer) {
+    clearTimeout(longpressTimer);
+    longpressTimer = null;
+  }
+  
+  // 如果菜单已经显示，不关闭（让用户手动关闭）
+  if (!menuVisible) {
+    pressGroup = null;
+    pressStartTime = 0;
+    longpressTriggered = false;
+  }
+}
+
+function handleLongpress(groupName, event) {
+  longpressTriggered = true;
+  
+  const config = allDeviceConfigs[groupName];
+  document.getElementById('menu-header').textContent = `${config?.displayName || groupName} (${config?.id || groupName})`;
+  
+  let clientX, clientY;
+  if (event.touches && event.touches.length > 0) {
+    clientX = event.touches[0].clientX;
+    clientY = event.touches[0].clientY;
+  } else if (event.changedTouches && event.changedTouches.length > 0) {
+    clientX = event.changedTouches[0].clientX;
+    clientY = event.changedTouches[0].clientY;
+  } else {
+    clientX = event.clientX;
+    clientY = event.clientY;
+  }
+  
+  const menu = document.getElementById('longpress-menu');
+  const menuWidth = 180;
+  const menuHeight = 60;
+  const left = Math.min(clientX - menuWidth / 2, window.innerWidth - menuWidth - 10);
+  const top = Math.min(clientY + 10, window.innerHeight - menuHeight - 10);
+  
+  menu.style.left = `${Math.max(left, 10)}px`;
+  menu.style.top = `${Math.max(top, 10)}px`;
+  menu.style.display = 'block';
+  menuVisible = true;  // 标记菜单已显示
+  
+  // 阻止后续事件传播
+  event.stopPropagation();
+}
+
+function handleClick(groupName) {
+  showDetailPage(groupName);
+}
+
+// ============ 长按菜单操作 ============
+
+// 点击定时设置菜单
+document.getElementById('menu-schedule').addEventListener('click', function(event) {
+  event.stopPropagation();
+  openScheduleModal();
+});
+
+// 点击其他地方关闭菜单
+document.addEventListener('click', function(event) {
+  const menu = document.getElementById('longpress-menu');
+  
+  // 如果菜单可见且点击的不是菜单内部
+  if (menuVisible && menu.style.display === 'block') {
+    if (!event.target.closest('.longpress-menu')) {
+      menu.style.display = 'none';
+      menuVisible = false;
+      longpressTriggered = false;
+    }
+  }
+});
+
+// 鼠标离开窗口也关闭菜单
+document.addEventListener('mouseleave', function() {
+  const menu = document.getElementById('longpress-menu');
+  if (menuVisible && menu.style.display === 'block') {
+    menu.style.display = 'none';
+    menuVisible = false;
+    longpressTriggered = false;
+  }
+});
+
+// ============ 定时设置弹窗操作 ============
+
+function openScheduleModal() {
+  const menu = document.getElementById('longpress-menu');
+  menu.style.display = 'none';
+  menuVisible = false;
+  
+  const select = document.getElementById('schedule-unit');
+  select.innerHTML = '';
+  
+  for (const [groupName, config] of Object.entries(allDeviceConfigs)) {
+    if (!config.units) continue;
+    config.units.filter(u => u.type === 'control').forEach(unit => {
+      const option = document.createElement('option');
+      option.value = `${groupName}/${unit.id}`;
+      option.textContent = `${config.displayName || groupName} - ${unit.name}`;
+      select.appendChild(option);
+    });
+  }
+  
+  document.getElementById('schedule-modal').classList.add('active');
+}
+
+function closeScheduleModal() {
+  document.getElementById('schedule-modal').classList.remove('active');
+  editingScheduleId = null;
+  // 如果在设备详情页面，刷新页面
+  if (currentView === 'detail' && currentDeviceGroup) {
+    loadDeviceDetail(currentDeviceGroup);
+  }
+}
+
+// 获取定时任务类型标签
+function getScheduleTypeLabel(schedule) {
+  if (schedule.recurring || schedule.interval) {
+    if (schedule.interval === 86400000) {
+      return '每天';
+    } else if (schedule.interval === 604800000) {
+      return '每周';
+    } else {
+      return '周期性';
+    }
+  } else {
+    return '一次性';
+  }
+}
+
+function getLocalTimeString(timeValue) {
+  if (timeValue === undefined || timeValue === null) return '--:--';
+  // Prefer parsing as a Date so ISO/Z strings become local wall-clock times
+  try {
+    const d = new Date(timeValue);
+    if (!isNaN(d.getTime())) {
+      return d.toTimeString().slice(0, 5);
+    }
+  } catch (e) {}
+
+  // Fallback: extract HH:MM patterns
+  if (typeof timeValue === 'string') {
+    const hmMatch = timeValue.match(/(\d{2}:\d{2})/);
+    if (hmMatch) return hmMatch[1];
+  }
+
+  return '--:--';
+}
+
+function formatLocalDateTime(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  const second = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+}
+
+// 获取定时任务时间信息
+function getScheduleTimeInfo(schedule, forDisplay = false) {
+  console.log('[调试] getScheduleTimeInfo 输入:', { 
+    time: schedule.time, 
+    recurring: schedule.recurring, 
+    weekdays: schedule.weekdays,
+    forDisplay 
+  });
+  
+  const formatTime = (time) => {
+    if (!time || typeof time !== 'string') return '--:--';
+    const result = forDisplay ? getLocalTimeString(time) : time;
+    console.log('[调试] formatTime 转换:', { original: time, converted: result, forDisplay });
+    return result;
+  };
+
+  // 处理每日任务
+  if (schedule.recurring === 'daily') {
+    if (schedule.time && typeof schedule.time === 'string') {
+      const result = `每天 ${formatTime(schedule.time)}`;
+      console.log('[调试] 每日任务显示:', result);
+      return result;
+    }
+    return '每天 未知时间';
+  }
+
+  // 处理每周任务
+  else if (schedule.recurring === 'weekly') {
+    const weekdayNames = Array.isArray(schedule.weekdays)
+      ? schedule.weekdays.map(day => ['周日','周一','周二','周三','周四','周五','周六'][day]).filter(Boolean).join('、')
+      : schedule.weekdays;
+    if (schedule.time && typeof schedule.time === 'string' && schedule.weekdays) {
+      const result = `每周 ${weekdayNames} ${formatTime(schedule.time)}`;
+      console.log('[调试] 每周任务显示:', result);
+      return result;
+    }
+    return `每周 ${weekdayNames || ''} 未知时间`;
+  }
+
+  // 处理周期任务
+  else if (schedule.recurring === 'interval') {
+    if (schedule.interval) {
+      const minutes = Math.floor(schedule.interval / 60000);
+      if (minutes < 60) {
+        return `每${minutes}分钟`;
+      } else {
+        const hours = Math.floor(minutes / 60);
+        return `每${hours}小时`;
+      }
+    }
+    return '周期任务';
+  }
+
+  // 处理一次性任务
+  else {
+    if (schedule.time && typeof schedule.time === 'string') {
+      const result = forDisplay ? getLocalTimeString(schedule.time) : schedule.time;
+      console.log('[调试] 一次性任务显示:', result);
+      return result;
+    }
+    return '未知时间';
+  }
+}
+
+
+// 修改定时任务
+function editSchedule(scheduleId) {
+  // 先获取任务详情
+  fetch(api + '/schedule', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  }).then(res => {
+    if (!res.ok) {
+      throw new Error('获取任务失败');
+    }
+    return res.json();
+  }).then(result => {
+    const task = result.schedules[scheduleId];
+    if (!task) {
+      alert('任务不存在');
+      return;
+    }
+    
+    // 设置编辑模式
+    editingScheduleId = scheduleId;
+    
+    // 先填充设备单元下拉框
+    const select = document.getElementById('schedule-unit');
+    select.innerHTML = '';
+    
+    for (const [gName, config] of Object.entries(allDeviceConfigs)) {
+      if (!config.units) continue;
+      config.units.filter(u => u.type === 'control').forEach(unit => {
+        const option = document.createElement('option');
+        option.value = `${gName}/${unit.id}`;
+        option.textContent = `${config.displayName || gName} - ${unit.name}`;
+        select.appendChild(option);
+      });
+    }
+    
+    // 填充表单数据
+    document.getElementById('schedule-unit').value = `${currentDeviceGroup}/${task.unitId}`;
+    
+    // 设置定时类型
+    let type = 'once';
+    if (task.interval === 86400000) {
+      type = 'daily';
+    } else if (task.interval === 604800000) {
+      type = 'weekly';
+    } else if (task.interval && task.interval !== 86400000 && task.interval !== 604800000) {
+      type = 'interval';
+    }
+    document.getElementById('schedule-type').value = type;
+
+    // 设置星期选择（在设置完类型后添加）
+if (type === 'weekly' && task.weekdays && Array.isArray(task.weekdays)) {
+  document.querySelectorAll('#week-days .repeat-option').forEach(el => {
+    el.classList.remove('active');
+    if (task.weekdays.includes(parseInt(el.dataset.day))) {
+      el.classList.add('active');
+    }
+  });
+}
+
+    
+    // 设置命令
+    if (task.cmd === 'ON') {
+      document.getElementById('cmd-on').click();
+    } else {
+      document.getElementById('cmd-off').click();
+    }
+    
+    // 设置时间
+    if (task.time) {
+      console.log('[调试] 编辑任务 - 原始时间:', task.time, '任务类型:', task.recurring, '任务ID:', scheduleId);
+      const localTime = getLocalTimeString(task.time);
+      console.log('[调试] 编辑任务 - 转换后时间:', localTime);
+      document.getElementById('schedule-time').value = localTime !== '--:--' ? localTime : '';
+    }
+
+
+    // 设置周期
+    if (task.interval && task.interval !== 86400000 && task.interval !== 604800000) {
+      document.getElementById('schedule-interval').value = Math.round(task.interval / 60000);
+    }
+    
+    // 触发类型切换事件
+    document.getElementById('schedule-type').dispatchEvent(new Event('change'));
+    
+    // 打开定时设置弹窗
+    document.getElementById('schedule-modal').classList.add('active');
+  }).catch(e => {
+    console.error('获取任务失败:', e);
+    alert('获取任务失败: ' + e.message);
+  });
+}
+
+// 启用/禁用定时任务
+function toggleScheduleEnable(scheduleId, enable, groupName) {
+  fetch(api + '/schedule/' + scheduleId + '/enable', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: enable })
+  }).then(res => {
+    if (!res.ok) {
+      return res.text().then(text => {
+        throw new Error(`服务器返回错误: ${res.status}`);
+      });
+    }
+    return res.json();
+  }).then(data => {
+    if (data.code === 200) {
+      alert(data.msg);
+      // 刷新当前设备组页面
+      if (currentView === 'detail' && currentDeviceGroup) {
+        loadDeviceDetail(currentDeviceGroup);
+      }
+    } else {
+      alert('操作失败: ' + data.msg);
+    }
+  }).catch(e => {
+    console.error('操作失败:', e);
+    alert('操作失败: ' + e.message);
+  });
+}
+
+// 删除定时任务
+function deleteSchedule(scheduleId, groupName) {
+  if (!confirm('确定要删除这个定时任务吗？')) {
+    return;
+  }
+  
+  fetch(api + '/schedule/' + scheduleId, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' }
+  }).then(res => {
+    if (!res.ok) {
+      return res.text().then(text => {
+        throw new Error(`服务器返回错误: ${res.status}`);
+      });
+    }
+    return res.json();
+  }).then(data => {
+    alert('删除成功');
+    // 如果在设备详情页面，刷新页面
+    if (currentView === 'detail' && currentDeviceGroup) {
+      loadDeviceDetail(currentDeviceGroup);
+    }
+    // 如果在定时任务列表页面，刷新列表
+    const scheduleModal = document.getElementById('schedule-list-modal');
+    if (scheduleModal && scheduleModal.classList.contains('active')) {
+      loadScheduleList();
+    }
+  }).catch(e => {
+    alert('删除失败: ' + e.message);
+  });
+}
+
+document.getElementById('schedule-type').addEventListener('change', function() {
+  const type = this.value;
+  document.getElementById('time-group').style.display = type !== 'interval' ? 'block' : 'none';
+  document.getElementById('week-group').style.display = type === 'weekly' ? 'block' : 'none';
+  document.getElementById('interval-group').style.display = type === 'interval' ? 'block' : 'none';
+});
+
+document.querySelectorAll('#week-days .repeat-option').forEach(el => {
+  el.addEventListener('click', function() {
+    this.classList.toggle('active');
+  });
+});
+
+document.getElementById('cmd-on').addEventListener('click', function() {
+  document.querySelectorAll('.cmd-option').forEach(e => e.classList.remove('active'));
+  this.classList.add('active');
+});
+
+document.getElementById('cmd-off').addEventListener('click', function() {
+  document.querySelectorAll('.cmd-option').forEach(e => e.classList.remove('active'));
+  this.classList.add('active');
+});
+
+document.getElementById('btn-save').addEventListener('click', function() {
+  const [groupName, unitId] = document.getElementById('schedule-unit').value.split('/');
+  const type = document.getElementById('schedule-type').value;
+  const cmd = document.querySelector('.cmd-option.active') === document.getElementById('cmd-on') ? 'ON' : 'OFF';
+  
+  // 获取设备配置信息
+  const config = allDeviceConfigs[groupName];
+  const location = config.location || '';
+  const displayName = config.displayName || groupName;
+  const unit = config.units.find(u => u.id === unitId);
+  const unitName = unit ? unit.name : '';
+  
+  let data = { unitId, cmd };
+  
+  // 如果是新增任务，设置正确的ID和名称格式
+  if (!editingScheduleId) {
+    // 使用简化的ID格式：设备单元ID-时间戳
+    data.id = `${unitId}-${Date.now()}`;
+    data.name = `${location}${location ? '-' : ''}${displayName}-${unitName}-1`;
+  }
+  
+  // 设置定时类型相关数据
+  if (type === 'once' || type === 'daily' || type === 'weekly') {
+    const time = document.getElementById('schedule-time').value;
+    if (!time) {
+      alert('请选择定时时间');
+      return;
+    }
+    data.recurring = type;
+    
+    if (type === 'daily') {
+      data.interval = 86400000;
+      // 保存第一次执行时间，使用本地时间构造再转换为UTC保存
+      const [hours, minutes] = time.split(':');
+      const target = new Date();
+      target.setHours(hours, minutes, 0, 0);
+      if (target < new Date()) {
+        target.setDate(target.getDate() + 1);
+      }
+      data.time = target.toISOString();
+    } else if (type === 'weekly') {
+      data.interval = 604800000;
+      // 获取用户选择的星期
+      const selectedDays = [];
+      document.querySelectorAll('#week-days .repeat-option.active').forEach(el => {
+        selectedDays.push(parseInt(el.dataset.day, 10));
+      });
+      if (selectedDays.length === 0) {
+        alert('请至少选择一个星期');
+        return;
+      }
+      data.weekdays = selectedDays; // 添加星期数组
+      
+      // 保存第一次执行时间：选择下一个匹配的星期几，使用本地时间构造再转换为UTC保存
+      const [hours, minutes] = time.split(':');
+      const now = new Date();
+      let nextRun = null;
+      for (let offset = 0; offset < 14; offset++) {
+        const candidate = new Date(now);
+        candidate.setDate(now.getDate() + offset);
+        candidate.setHours(hours, minutes, 0, 0);
+        const weekday = candidate.getDay();
+        if (selectedDays.includes(weekday) && candidate > now) {
+          nextRun = candidate;
+          break;
+        }
+      }
+      if (!nextRun) {
+        alert('无法计算下一个执行日，请检查星期选择');
+        return;
+      }
+      data.time = nextRun.toISOString();
+    } else {
+      const [hours, minutes] = time.split(':');
+      const target = new Date();
+      target.setHours(hours, minutes, 0, 0);
+      if (target < new Date()) {
+        target.setDate(target.getDate() + 1);
+      }
+      data.time = target.toISOString();
+    }
+  } else if (type === 'interval') {
+    const minutes = document.getElementById('schedule-interval').value;
+    if (!minutes || minutes < 1) {
+      alert('请输入有效周期');
+      return;
+    }
+    data.interval = minutes * 60000;
+  }
+  
+  // 在设置完 data 后再确定 URL 和方法
+  let url = api + '/schedule';
+  let method = 'POST';
+  
+  // 如果是编辑模式
+  if (editingScheduleId) {
+    url = api + '/schedule/' + editingScheduleId;
+    method = 'PUT';
+  } else if (data.interval) {
+    // 新增周期性任务
+    url = api + '/schedule/recurring';
+  }
+  
+  fetch(url, {
+    method: method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(res => {
+    if (!res.ok) {
+      return res.text().then(text => {
+        throw new Error(`服务器返回错误: ${res.status}`);
+      });
+    }
+    return res.json();
+  }).then(data => {
+    if (data.code === 200) {
+        alert(editingScheduleId ? '定时任务已更新' : '定时设置成功');
+        closeScheduleModal();
+        // 刷新当前设备组的任务列表
+        if (currentView === 'detail' && currentDeviceGroup) {
+          loadDeviceDetail(currentDeviceGroup);
+        }
+    } else {
+      alert('设置失败: ' + data.msg);
+    }
+  }).catch(e => {
+    alert('设置失败: ' + e.message);
+  });
+});
+
+document.getElementById('btn-cancel').addEventListener('click', closeScheduleModal);
+
+document.getElementById('modal-close-btn').addEventListener('click', closeScheduleModal);
+
+document.getElementById('schedule-modal').addEventListener('click', function(event) {
+  if (event.target === this) {
+    closeScheduleModal();
+  }
+});
+
+// ============ 页面导航 ============
+
+function showDetailPage(groupName) {
+  currentView = 'detail';
+  currentDeviceGroup = groupName;
+  document.getElementById('overview-page').style.display = 'none';
+  document.getElementById('detail-page').style.display = 'block';
+  
+  const config = allDeviceConfigs[groupName];
+  document.getElementById('detail-title').textContent = config?.displayName || groupName;
+  document.getElementById('detail-id').textContent = '设备ID: ' + (config?.id || groupName);
+  loadDeviceDetail(groupName);
+}
+
+function showOverviewPage() {
+  currentView = 'overview';
+  currentDeviceGroup = null;
+  document.getElementById('detail-page').style.display = 'none';
+  document.getElementById('overview-page').style.display = 'block';
+  renderDeviceGrid();
+}
+
+function loadDeviceDetail(groupName) {
+  const config = allDeviceConfigs[groupName];
+  if (!config?.units?.length) {
+    document.getElementById('unit-list').innerHTML = '<p style="color:white;padding:20px;">暂无设备单元</p>';
+    return;
+  }
+  
+  // 先加载定时任务列表
+  fetch(api + '/schedule/list', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  }).then(res => {
+    if (!res.ok) {
+      return { schedules: [] };
+    }
+    return res.json();
+  }).then(result => {
+    const schedules = result.schedules || [];
+    console.log('[调试] 获取到定时任务列表:', schedules);
+    renderDeviceDetail(groupName, schedules);
+  }).catch(e => {
+    console.error('[调试] 获取定时任务失败:', e);
+    renderDeviceDetail(groupName, []);
+  });
+}
+
+function renderDeviceDetail(groupName, schedules) {
+  const config = allDeviceConfigs[groupName];
+  const deviceId = config.id || groupName;
+  let html = '';
+  
+  for (const unit of config.units) {
+    const key = `${groupName}/${deviceId}/relay/${unit.id}`;
+    const deviceState = allDevices[key]?.state;
+    
+    // 对于 control 类型，允许显示 OFFLINE 状态
+    // 对于 state、text、data 类型，忽略 OFFLINE，显示实际值
+    let status;
+    if (unit.type === 'control') {
+      status = deviceState || unit.status || 'OFF';
+    } else {
+      // 非控制类型：如果状态是 OFFLINE，使用设备配置中的默认值
+      status = (deviceState && deviceState !== 'OFFLINE') ? deviceState : (unit.status || '');
+    }
+    
+    const statusClass = status === 'ON' ? 'on' : (status === 'OFFLINE' ? 'offline' : 'off');
+    
+    const typeMap = { 
+      control: { label: '控制', class: 'control' }, 
+      state: { label: '状态', class: 'state' }, 
+      text: { label: '文本', class: 'text' }, 
+      data: { label: '数据', class: 'data' } 
+    };
+    const typeInfo = typeMap[unit.type] || { label: '未知', class: 'control' };
+    
+    let actionBtn = '';
+    if (unit.type === 'control') {
+      actionBtn = `<button class="unit-btn ${status === 'ON' ? 'off' : 'on'}" onclick="toggleUnit('${unit.id}', '${groupName}')">${status === 'ON' ? '关闭' : '打开'}</button>`;
+    } else if (unit.type === 'state') {
+      actionBtn = `<button class="unit-btn query" onclick="queryState('${unit.id}', '${groupName}')">查询状态</button>`;
+    } else if (unit.type === 'text') {
+      actionBtn = `<button class="unit-btn edit" onclick="editTextValue('${unit.id}', '${unit.name}', '${status}')">编辑文本</button>`;
+    } else if (unit.type === 'data') {
+      actionBtn = `<button class="unit-btn edit" onclick="editDataValue('${unit.id}', '${unit.name}', '${status}')">编辑数值</button>`;
+    }
+    
+    // 获取该设备单元的定时任务，兼容 unitId 可能带前缀/空白的情况
+    // 修改匹配逻辑，确保正确匹配 slot 字段
+    const unitSchedules = schedules.filter(s => {
+      const scheduleUnitId = (s.unitId || s.slot || s.deviceId || '').toString().trim();
+      const targetUnitId = (unit.id || '').toString().trim();
+  
+      // 直接匹配
+      if (scheduleUnitId === targetUnitId) return true;
+  
+     // 后缀匹配
+      const scheduleSuffix = scheduleUnitId.split('/').pop();
+      const targetSuffix = targetUnitId.split('/').pop();
+      if (scheduleSuffix === targetSuffix) return true; 
+  
+      // 前缀匹配（处理 groupName/unitId 格式）
+      const fullUnitPath = `${groupName}/${targetUnitId}`;
+      if (scheduleUnitId === fullUnitPath) return true;     
+  
+      return false;
+    });
+
+    if (unitSchedules.length === 0 && schedules.length > 0) {
+      console.debug('[调试] 未匹配到该单元的定时任务', { groupName, unitId: unit.id, schedules: schedules.map(s => ({ id: s.id, unitId: s.unitId })) });
+    }
+    
+    // 生成定时任务HTML
+    let scheduleHtml = '';
+    if (unit.type === 'control') {
+      scheduleHtml = `
+        <div class="unit-schedules">
+          <div class="unit-schedules-header">
+            <span>定时任务</span>
+            <span class="add-schedule-btn" onclick="openAddSchedule('${groupName}', '${unit.id}')">+ 添加</span>
+          </div>
+          <div class="schedule-list">
+            ${unitSchedules.length > 0 ? 
+              unitSchedules.map(s => `
+                <div class="schedule-item" ${s.enabled === false ? 'style="opacity:0.6;"' : ''}>
+                  <div class="schedule-info">
+                    <span class="schedule-cmd">${s.cmd}</span>
+                    <span class="schedule-time"> - ${getScheduleTypeLabel(s)} ${getScheduleTimeInfo(s, true)}</span>
+                    ${s.enabled === false ? '<span class="schedule-disabled">已禁用</span>' : ''}
+                  </div>
+                  <div class="schedule-actions">
+                    <button class="schedule-action-btn ${s.enabled === false ? 'enable' : 'disable'}" onclick="toggleScheduleEnable('${s.id}', ${s.enabled === false}, '${groupName}')">${s.enabled === false ? '启用' : '禁用'}</button>
+                    <button class="schedule-action-btn edit" onclick="editSchedule('${s.id}')">修改</button>
+                    <button class="schedule-action-btn delete" onclick="deleteSchedule('${s.id}', '${groupName}')">删除</button>
+                  </div>
+                </div>
+              `).join('') : 
+              '<p style="text-align:center;color:#999;font-size:11px;padding:8px;">暂无定时任务</p>'}
+          </div>
+        </div>
+      `;
+    }
+    
+    html += `
+      <div class="unit-card">
+        <div class="unit-header">
+          <span class="unit-name">${unit.name}</span>
+          <span class="unit-type ${typeInfo.class}">${typeInfo.label}</span>
+        </div>
+        <div class="unit-status">
+          <div class="status-label">当前状态</div>
+          <div class="status-value ${statusClass}">${status}</div>
+        </div>
+        <div class="unit-actions">${actionBtn}</div>
+        ${scheduleHtml}
+      </div>
+    `;
+  }
+  
+  document.getElementById('unit-list').innerHTML = html;
+}
+
+function openAddSchedule(groupName, unitId) {
+  editingScheduleId = null;
+  
+  // 先填充设备单元下拉框
+  const select = document.getElementById('schedule-unit');
+  select.innerHTML = '';
+  
+  for (const [gName, config] of Object.entries(allDeviceConfigs)) {
+    if (!config.units) continue;
+    config.units.filter(u => u.type === 'control').forEach(unit => {
+      const option = document.createElement('option');
+      option.value = `${gName}/${unit.id}`;
+      option.textContent = `${config.displayName || gName} - ${unit.name}`;
+      select.appendChild(option);
+    });
+  }
+  
+  // 选择指定的设备单元
+  document.getElementById('schedule-unit').value = `${groupName}/${unitId}`;
+  
+  // 重置表单
+  document.getElementById('schedule-type').value = 'once';
+  document.getElementById('schedule-time').value = new Date().toTimeString().slice(0, 5);
+  document.getElementById('schedule-interval').value = 60;
+  document.getElementById('cmd-on').click();
+  document.getElementById('schedule-type').dispatchEvent(new Event('change'));
+  
+  // 打开定时设置弹窗
+  document.getElementById('schedule-modal').classList.add('active');
+}
+
+// ============ 设备控制 ============
+
+function toggleUnit(unitId, groupName) {
+  const config = allDeviceConfigs[groupName];
+  const key = `${groupName}/${config.id || groupName}/relay/${unitId}`;
+  const newState = (allDevices[key]?.state || 'OFF') === 'ON' ? 'OFF' : 'ON';
+  
+  fetch(api + '/control-slot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slot: unitId, cmd: newState })
+  }).then(res => {
+    if (!res.ok) {
+      // 如果响应不成功，先尝试读取文本内容
+      return res.text().then(text => {
+        throw new Error(`服务器返回错误: ${res.status} - ${text.substring(0, 100)}`);
+      });
+    }
+    return res.json();
+  }).then(data => {
+    // 命令已成功发出，状态会通过MQTT更新
+    alert(`命令已发送: ${newState}`);
+  }).catch(e => {
+    // 显示更友好的错误信息
+    console.error('控制失败:', e);
+    alert(`控制失败: ${e.message}`);
+  });
+}
+
+function toggleAllUnits(event, groupName) {
+  // 阻止事件传播到父级
+  event.stopPropagation();
+  
+  const config = allDeviceConfigs[groupName];
+  if (!config?.units?.length) return;
+  
+  const controlUnits = config.units.filter(u => u.type === 'control');
+  if (!controlUnits.length) return;
+  
+  const deviceId = config.id || groupName;
+  
+  // 检查当前所有控制单元是否都处于ON状态
+  const allOn = controlUnits.every(unit => {
+    const key = `${groupName}/${deviceId}/relay/${unit.id}`;
+    return allDevices[key]?.state === 'ON';
+  });
+  
+  // 如果全部ON则关闭全部，否则打开全部
+  const cmd = allOn ? 'OFF' : 'ON';
+  
+  // 批量控制所有控制单元
+  controlUnits.forEach(unit => {
+    fetch(api + '/control-slot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slot: unit.id, cmd: cmd })
+    }).then(res => res.json()).catch(e => console.error('控制失败:', e));
+  });
+  
+  alert(`${cmd === 'ON' ? '打开' : '关闭'}设备组 "${config.displayName || groupName}" 的所有设备单元`);
+}
+
+function queryState(unitId, groupName) {
+  fetch(api + '/control-slot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slot: unitId, cmd: 'QUERY' })
+  }).then(res => {
+    if (!res.ok) {
+      return res.text().then(text => {
+        throw new Error(`服务器返回错误: ${res.status}`);
+      });
+    }
+    return res.json();
+  }).then(data => {
+    alert(data.msg);
+  }).catch(e => {
+    alert(`查询失败: ${e.message}`);
+  });
+}
+
+function editTextValue(unitId, unitName, currentValue) {
+  const newValue = prompt(`编辑 ${unitName} 的文本值：`, currentValue);
+  if (newValue === null) return;
+  if (!newValue.trim()) { alert('文本值不能为空'); return; }
+  
+  fetch(api + '/set-text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slot: unitId, value: newValue })
+  }).then(res => {
+    if (!res.ok) return res.text().then(text => { throw new Error(`服务器返回错误: ${res.status}`); });
+    return res.json();
+  }).then(data => {
+    alert(data.msg);
+    if (currentDeviceGroup) loadDeviceDetail(currentDeviceGroup);
+  }).catch(e => alert('设置失败: ' + e.message));
+}
+
+function editDataValue(unitId, unitName, currentValue) {
+  const newValue = prompt(`编辑 ${unitName} 的数值：`, currentValue);
+  if (newValue === null) return;
+  if (isNaN(parseFloat(newValue))) { alert('请输入有效数字'); return; }
+  
+  fetch(api + '/set-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slot: unitId, value: parseFloat(newValue) })
+  }).then(res => {
+    if (!res.ok) return res.text().then(text => { throw new Error(`服务器返回错误: ${res.status}`); });
+    return res.json();
+  }).then(data => {
+    alert(data.msg);
+    if (currentDeviceGroup) loadDeviceDetail(currentDeviceGroup);
+  }).catch(e => alert('设置失败: ' + e.message));
+}
+
+function sendAi() {
+  const text = document.getElementById('ai-text').value;
+  if (!text) return;
+  
+  const scheduleKeywords = [
+    '点', '分', '秒', '时', '刻', '钟',
+    '今天', '明天', '后天', '昨天', '前天',
+    '每天', '每周', '每月', '每年',
+    '周一', '周二', '周三', '周四', '周五', '周六', '周日', '这周', '下周', '上周',
+    '上午', '下午', '晚上', '凌晨', '深夜',
+    '定时', '提醒', '预约', '计划', '稍后', '今晚', '当天', '当月', '本周', '本月', '今年'
+  ];
+  
+  const hasScheduleKeyword = scheduleKeywords.some(keyword => text.includes(keyword));
+  
+  // 修复：移除 /api/ 前缀
+  const apiEndpoint = hasScheduleKeyword ? '/ai-schedule' : '/ai-advanced';
+  
+  fetch(api + apiEndpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  }).then(res => {
+    if (!res.ok) return res.text().then(text => { throw new Error(`服务器返回错误: ${res.status}`); });
+    return res.json();
+  }).then(data => {
+    document.getElementById('ai-result').textContent = data.msg || JSON.stringify(data);
+    
+    if (hasScheduleKeyword && currentView === 'detail' && currentDeviceGroup) {
+      loadDeviceDetail(currentDeviceGroup);
+    }
+  }).catch(e => {
+    document.getElementById('ai-result').textContent = '请求失败: ' + e.message;
+  });
+}
+
+
+// ============ 初始化 ============
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch(api + '/config');
+    if (res.ok) {
+      const configData = await res.json();
+      allDeviceConfigs = configData.configs || configData || {};
+      // 获取 WebSocket 端口配置
+      if (configData.wsPort) {
+        wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:${configData.wsPort}`;
+        console.log('[配置] WebSocket端口已更新为:', configData.wsPort);
+      }
+    }
+  } catch (e) { console.error('加载配置失败:', e); }
+  
+  try {
+    const res = await fetch(api + '/status');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.states) Object.assign(allDevices, data.states);
+      document.getElementById('control-status').textContent = data.mqttConnected ? '已连接' : '未连接';
+    }
+  } catch (e) { console.error('获取状态失败:', e); }
+  
+  renderDeviceGrid();
+  connectWebSocket();
+});
+</script>
+</body>
+</html>

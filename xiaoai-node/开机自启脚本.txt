@@ -1,0 +1,7 @@
+Bash
+# 1. 安装pm2
+npm install pm2 -g
+# 2. 启动服务并设置开机自启
+pm2 start server.js --name iot-xiaomi
+pm2 save
+pm2 startup

@@ -1,0 +1,41 @@
+﻿      // 鍒囨崲鎵€鏈夋帶鍒跺崟鍏冪殑鐘舵€?
+      if (oldGroup.units && oldGroup.units.length > 0) {
+        // 妫€鏌ュ綋鍓嶇姸鎬侊紝鍐冲畾鏄叏閮ㄦ墦寮€杩樻槸鍏ㄩ儴鍏抽棴
+        // 绛涢€夊嚭control绫诲瀷鐨勫崟鍏?
+        const controlUnits = oldGroup.units.filter(unit => unit.type === 'control');
+        
+
+          // 妫€鏌ontrol鍗曞厓鐨勭姸鎬?
+          const controlUnitsOn = controlUnits.filter(unit => unit.status === 'ON');
+          
+          // 鍐冲畾鏂扮姸鎬侊細
+          // 1. 鎵€鏈塩ontrol鍗曞厓閮芥槸ON -> 鍏ㄩ儴鍏抽棴
+          // 2. 鎵€鏈塩ontrol鍗曞厓閮芥槸OFF -> 鍏ㄩ儴鎵撳紑  
+          // 3. 閮ㄥ垎control鍗曞厓ON锛岄儴鍒哋FF -> 鍏ㄩ儴鎵撳紑
+          const newStatus = controlUnitsOn.length === controlUnits.length ? 'OFF' : 'ON';
+        
+        // 鍒涘缓鏂扮殑units鏁扮粍
+        const newUnits = oldGroup.units.map(unit => {
+          const newUnit = new DeviceUnit();
+          newUnit.id = unit.id;
+          newUnit.name = unit.name;
+          newUnit.type = unit.type;
+          newUnit.status = unit.type === 'control' ? newStatus : unit.status;
+          return newUnit;
+        });
+        
+        // 鍒涘缓鏂扮殑缁勫璞?
+        const newGroup = new DeviceGroup();
+        newGroup.id = oldGroup.id;
+        newGroup.name = oldGroup.name;
+        newGroup.groupName = oldGroup.groupName;
+        newGroup.displayName = oldGroup.displayName;
+        newGroup.location = oldGroup.location;
+        newGroup.icon = oldGroup.icon;
+        newGroup.hasControlUnit = oldGroup.hasControlUnit;
+        newGroup.isOffline = oldGroup.isOffline;
+        newGroup.units = newUnits;
+        
+        // 鏇存柊缁?
+        updatedGroups[groupIndex] = newGroup;
+        

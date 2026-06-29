@@ -1,0 +1,63 @@
+  private async saveSchedule(): Promise<void> {
+    if (!this.editingSchedule) {
+      return;
+    }
+
+    // 如果是新建任务，自动生成名称
+    if (!this.editingSchedule.id && !this.editingSchedule.name) {
+      this.editingSchedule.name = this.getGeneratedScheduleName();
+    }
+
+    // 确保recurring和interval字段正确设置
+    // 根据selectedScheduleType设置对应的值
+    if (this.selectedScheduleType === 0) {
+      // 每天
+      this.editingSchedule.recurring = true;
+      this.editingSchedule.interval = 86400000;
+    } else if (this.selectedScheduleType === 1) {
+      // 每周
+      this.editingSchedule.recurring = true;
+      this.editingSchedule.interval = 604800000;
+    } else {
+      // 一次性
+      this.editingSchedule.recurring = false;
+      this.editingSchedule.interval = undefined;
+    }
+ 
+    // 验证必填字段
+    if (!this.editingSchedule.time) {
+      this.showToastMessage('请填写执行时间');
+      return;
+    }
+
+    try {
+      // 构建ScheduleRequest对象
+      const scheduleRequest: ScheduleRequest = {
+        id: this.editingSchedule.id || undefined,
+        name: this.editingSchedule.name,
+        unitId: this.editingSchedule.unitId,
+        cmd: this.editingSchedule.cmd,
+        time: this.editingSchedule.time,
+        recurring: this.editingSchedule.recurring,
+        interval: this.editingSchedule.interval,
+        weekdays: this.editingSchedule.weekdays
+      };
+
+      if (this.editingSchedule.id) {
+        // 更新现有任务
+        await this.scheduleService.updateSchedule(this.editingSchedule.id, scheduleRequest);
+        this.showToastMessage('定时任务已更新');
+      } else {
+        // 创建新任务
+        await this.scheduleService.createSchedule(scheduleRequest);
+        this.showToastMessage('定时任务已创建');
+      }
+
+      this.showScheduleEdit = false;
+      this.editingSchedule = null;
+      await this.loadSchedulesForUnit();
+    } catch (error) {
+      console.error('保存定时任务失败:', error);
+      this.showToastMessage('保存定时任务失败');
+    }
+  }

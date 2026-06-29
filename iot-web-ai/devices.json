@@ -1,0 +1,165 @@
+{
+  "sdj": {
+    "name": "sdj",
+    "displayName": "扫地机",
+    "id": "baomujian-sdj-40858013",
+    "location": "保姆间",
+    "units": [
+      {
+        "id": "baomujian-sdj-40858013_kaiguan-2966",
+        "name": "开关",
+        "status": "OFF",
+        "type": "control"
+      }
+    ]
+  },
+  "shg": {
+    "name": "shg",
+    "displayName": "珊瑚缸",
+    "id": "keting-shg-64771774",
+    "location": "客厅",
+    "units": [
+      {
+        "id": "keting-shg-64771774_fengshan-0838",
+        "name": "风扇",
+        "status": "ON",
+        "type": "control"
+      },
+      {
+        "id": "keting-shg-64771774_yangqi-0041",
+        "name": "氧气",
+        "status": "ON",
+        "type": "control"
+      },
+      {
+        "id": "keting-shg-64771774_weishi-3278",
+        "name": "喂食",
+        "status": "ON",
+        "type": "control"
+      },
+      {
+        "id": "keting-shg-64771774_gongshui-5747",
+        "name": "供水",
+        "status": "ON",
+        "type": "control"
+      },
+      {
+        "id": "keting-shg-64771774_gaoshuiweichuanganqi-5209",
+        "name": "高水位传感器",
+        "status": "ON",
+        "type": "state"
+      },
+      {
+        "id": "keting-shg-64771774_dishuiweichuanganqi-9611",
+        "name": "低水位传感器",
+        "status": "ON",
+        "type": "state"
+      },
+      {
+        "id": "keting-shg-64771774_wenduchuanganqi-5906",
+        "name": "温度传感器",
+        "status": "27",
+        "type": "state"
+      },
+      {
+        "id": "keting-shg-64771774_wendushangxianzhi-3641",
+        "name": "温度上限值",
+        "status": "31",
+        "type": "data"
+      },
+      {
+        "id": "keting-shg-64771774_wenduxiaxianzhi-1602",
+        "name": "温度下线值",
+        "status": "26",
+        "type": "data"
+      }
+    ]
+  },
+  "test": {
+    "name": "test",
+    "displayName": "测试设备",
+    "id": "0000-test-16337710",
+    "location": null,
+    "units": [
+      {
+        "id": "0000-test-16337710_kaiguan-3871",
+        "name": "开关",
+        "status": "ON",
+        "type": "control"
+      },
+      {
+        "id": "0000-test-16337710_zhuangtai-1151",
+        "name": "状态",
+        "status": "ON",
+        "type": "state"
+      },
+      {
+        "id": "0000-test-16337710_wenben-4757",
+        "name": "文本",
+        "status": "上帝",
+        "type": "text"
+      },
+      {
+        "id": "0000-test-16337710_shuzi-8879",
+        "name": "数字",
+        "status": "0",
+        "type": "data"
+      }
+    ]
+  },
+  "ktd": {
+    "name": "ktd",
+    "displayName": "灯",
+    "id": "keting-ktd-60614408",
+    "location": "客厅",
+    "units": [
+      {
+        "id": "keting-ktd-60614408_ketingdeng-8634",
+        "name": "客厅灯",
+        "status": "OFF",
+        "type": "control"
+      }
+    ]
+  },
+  "dskg": {
+    "name": "dskg",
+    "displayName": "电视",
+    "id": "keting-dskg-70483120",
+    "location": "客厅",
+    "units": [
+      {
+        "id": "keting-dskg-70483120_dianshi-9088",
+        "name": "电视",
+        "status": "OFF",
+        "type": "control"
+      },
+      {
+        "id": "keting-dskg-70483120_jidinghe-9921",
+        "name": "机顶盒",
+        "status": "OFF",
+        "type": "control"
+      }
+    ]
+  },
+  "lyws": {
+    "name": "lyws",
+    "displayName": "鲤鱼喂食",
+    "id": "keting-lyws-57134878",
+    "location": "客厅",
+    "units": [
+      {
+        "id": "keting-lyws-57134878_liyuweishiqi-2169",
+        "name": "鲤鱼喂食器",
+        "status": "ON",
+        "type": "control"
+      },
+      {
+        "id": "keting-lyws-57134878_feedspeed-6847",
+        "name": "feedspeed",
+        "status": "20",
+        "type": "data"
+      }
+    ]
+  },
+  "lastUpdated": "2026-05-28T03:53:59.981Z"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "ai-iot-harmony",
+  "version": "1.0.0",
+  "description": "AI-IoT设备控制系统 - 鸿蒙版",
+  "main": "index.ets",
+  "author": "mh",
+  "license": "LP license 2.0",
+  "dependencies": {}
+}
