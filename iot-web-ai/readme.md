@@ -16,7 +16,7 @@
    │   ┌─────────────────┐      ┌─────────────────┐      ┌───────────────┐   │
    │   │   前端页面      │──────│   控制服务       │──────│   MQTT服务器  │   │
    │   │   index.html    │      │ server-control- │      │    EMQX       │   │
-   │   │   config.html   │      │   tcp.js        │      │ 192.168.6.40 │   │
+   │   │   config.html   │      │   tcp.js        │      │ 192.168.1.40 │   │
    │   └────────┬────────┘      └────────┬────────┘      └───────┬───────┘   │
    │            │                        │                        │          │
    │            │ WebSocket              │ MQTT TCP               │ MQTT     │
@@ -24,7 +24,7 @@
    │   ┌───────────────────────────────────────────────────────────────────┐ │
    │   │                    状态服务 (server-status-ws.js)                 │ │
    │   │                  监听端口: 8084                                   │ │
-   │   │                  IP: 192.168.6.149                               │ │
+   │   │                  IP: 192.168.1.40                               │ │
    │   └───────────────────────────────────────────────────────────────────┘ │
    │                                                                         │
    └─────────────────────────────────────────────────────────────────────────┘
@@ -34,8 +34,8 @@
    
    | 服务     | 文件                    | 端口 | 功能                 |
    | -------- | ----------------------- | ---- | -------------------- |
-   | 配置服务 | `server-config.js`      | 3001 | 设备配置管理（CRUD） |
-   | 控制服务 | `server-control-tcp.js` | 3002 | MQTT控制指令下发     |
+   | 配置服务 | `server-config.js`      | 6001 | 设备配置管理（CRUD） |
+   | 控制服务 | `server-control-tcp.js` | 6002 | MQTT控制指令下发     |
    | 状态服务 | `server-status-ws.js`   | 8084 | WebSocket状态推送    |
    
    #### 1.1.3 数据流
@@ -121,19 +121,19 @@
    
    ```env
    # 服务器配置
-   SERVER_IP=192.168.6.149
+   SERVER_IP=192.168.1.149
    WS_PORT=8084
    
    # MQTT服务器配置
-   MQTT_EXTERNAL_WS_SERVER=ws://192.168.6.40:8083/mqtt
-   MQTT_INTERNAL_SERVER=mqtt://192.168.6.40:1883
+   MQTT_EXTERNAL_WS_SERVER=ws://192.168.1.40:8083/mqtt
+   MQTT_INTERNAL_SERVER=mqtt://192.168.1.40:1883
    MQTT_TOPIC_PREFIX=iot/device
-   MQTT_USERNAME=mh
-   MQTT_PASSWORD=MaGu971204
+   MQTT_USERNAME=xx
+   MQTT_PASSWORD=XXXXXX
    
    # 服务端口配置
-   CONFIG_SERVICE_PORT=3001
-   CONTROL_SERVICE_PORT=3002
+   CONFIG_SERVICE_PORT=6001
+   CONTROL_SERVICE_PORT=6002
    ```
    
    ### 2.3 启动服务
@@ -143,7 +143,7 @@
    ```bash
    npm run config
    # 输出示例：
-   # 配置服务启动：http://192.168.6.149:3001
+   # 配置服务启动：http://192.168.1.149:6001
    ```
    
    #### 2.3.2 启动控制服务
@@ -151,7 +151,7 @@
    ```bash
    npm run start
    # 输出示例：
-   # 控制服务启动：http://192.168.6.149:3002
+   # 控制服务启动：http://192.168.1.40:6002
    # MQTT TCP控制客户端（内网）连接成功
    ```
    
@@ -160,7 +160,7 @@
    ```bash
    npm run status
    # 输出示例：
-   # WebSocket状态服务（外网）启动: ws://192.168.6.149:8084
+   # WebSocket状态服务（外网）启动: ws://192.168.1.40:8084
    # MQTT WebSocket状态客户端（外网）连接成功
    ```
    
@@ -168,8 +168,8 @@
    
    | 服务         | URL                                   |
    | ------------ | ------------------------------------- |
-   | 设备控制页面 | `http://<server-ip>:3002/index.html`  |
-   | 配置管理页面 | `http://<server-ip>:3001/config.html` |
+   | 设备控制页面 | `http://<server-ip>:6002/index.html`  |
+   | 配置管理页面 | `http://<server-ip>:6001/config.html` |
    
    ### 2.5 设备端配置
    
@@ -279,10 +279,10 @@
    
    ```bash
    # 订阅状态主题
-   mqtt sub -t "iot/device/+/state" -h 192.168.6.40 -p 1883
+   mqtt sub -t "iot/device/+/state" -h 192.168.1.40 -p 1883
    
    # 发布测试消息
-   mqtt pub -t "iot/device/test-unit/state" -m "ON" -h 192.168.6.40 -p 1883
+   mqtt pub -t "iot/device/test-unit/state" -m "ON" -h 192.168.1.40 -p 1883
    
    # 预期：前端页面显示设备状态变为ON
    ```
@@ -315,13 +315,13 @@
        build: .
        command: npm run config
        ports:
-         - "3001:3001"
+         - "6001:6001"
      
      control-service:
        build: .
        command: npm run start
        ports:
-         - "3002:3002"
+         - "6002:6002"
      
      status-service:
        build: .
