@@ -57,9 +57,9 @@ npm start
 
 | 脚本                        | 命令                                                 | 功能说明                                                     |
 | --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
-| `npm run start`             | `node server-control-tcp.js`                         | 启动**控制服务**（端口3002）<br>→ 负责定时任务管理、设备控制API |
+| `npm run start`             | `node server-control-tcp.js`                         | 启动**控制服务**（端口6002）<br>→ 负责定时任务管理、设备控制API |
 | `npm run status`            | `node server-status-ws.js`                           | 启动**状态服务**（端口8090）<br>→ 负责WebSocket实时状态推送  |
-| `npm run config`            | `node server-config.js`                              | 启动**配置服务**（端口3001）<br>→ 负责设备配置管理           |
+| `npm run config`            | `node server-config.js`                              | 启动**配置服务**（端口6001）<br>→ 负责设备配置管理           |
 | `npm run home-assistant-AI` | `concurrently "npm:start" "npm:status" "npm:config"` | **同时启动三个服务**（需先安装 `concurrently`）              |
 
 ### 2. PM2 生产模式脚本（后台运行）

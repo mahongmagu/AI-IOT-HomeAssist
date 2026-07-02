@@ -10,7 +10,7 @@
 
 ```bash
 # 打开设备（ON）
-curl -X POST http://localhost:3002/api/control \
+curl -X POST http://localhost:6002/api/control \
   -H "Content-Type: application/json" \
   -d '{
     "unitId": "baomujian-sdj-40858013_kaiguan-2966",
@@ -18,7 +18,7 @@ curl -X POST http://localhost:3002/api/control \
   }'
 
 # 关闭设备（OFF）
-curl -X POST http://localhost:3002/api/control \
+curl -X POST http://localhost:6002/api/control \
   -H "Content-Type: application/json" \
   -d '{
     "unitId": "baomujian-sdj-40858013_kaiguan-2966",
@@ -52,7 +52,7 @@ curl -X POST http://localhost:3002/api/control \
 
 ```bash
 # 使用 mosquitto_pub 发布命令
-mosquitto_pub -h 192.168.6.40 -p 1883 -u "mh" -P "MaGu971204" \
+mosquitto_pub -h 192.168.1.40 -p 1883 -u "xxxx" -P "mqtt-password" \
   -t "iot/device/baomujian-sdj-40858013_kaiguan-2966/control" \
   -m '{"cmd":"ON"}'
 ```
@@ -108,20 +108,20 @@ mosquitto_pub -h 192.168.6.40 -p 1883 -u "mh" -P "MaGu971204" \
 ### 获取设备列表
 
 ```bash
-curl http://localhost:3002/api/config
+curl http://localhost:6002/api/config
 ```
 
 ### 获取设备状态
 
 ```bash
-curl http://localhost:3002/api/status
+curl http://localhost:6002/api/status
 ```
 
 ### 批量控制（打开/关闭全部）
 
 ```bash
 # 打开指定设备组的所有设备
-curl -X POST http://localhost:3002/api/control/group \
+curl -X POST http://localhost:6002/api/control/group \
   -H "Content-Type: application/json" \
   -d '{
     "groupName": "baomujian",
@@ -149,10 +149,10 @@ curl -X POST http://localhost:3002/api/control/group \
 
 ```bash
 # 1. 获取设备配置，找到目标设备的 unitId
-curl http://localhost:3002/api/config
+curl http://localhost:6002/api/config
 
 # 2. 发送控制命令
-curl -X POST http://localhost:3002/api/control \
+curl -X POST http://localhost:6002/api/control \
   -H "Content-Type: application/json" \
   -d '{
     "unitId": "baomujian-sdj-40858013_kaiguan-2966",
@@ -160,7 +160,7 @@ curl -X POST http://localhost:3002/api/control \
   }'
 
 # 3. 验证状态
-curl http://localhost:3002/api/status
+curl http://localhost:6002/api/status
 ```
 
 > **提示**：确保控制服务（`npm run start`）已启动，并且设备已连接到 MQTT 服务器。
@@ -196,7 +196,7 @@ curl http://localhost:3002/api/status
 
 ```bash
 # 发送AI指令
-curl -X POST http://localhost:3002/api/ai \
+curl -X POST http://localhost:6002/api/ai \
   -H "Content-Type: application/json" \
   -d '{
     "text": "打开卧室的灯"
@@ -227,7 +227,7 @@ curl -X POST http://localhost:3002/api/ai \
 **功能**：支持更复杂的对话和指令，返回详细的解析结果
 
 ```bash
-curl -X POST http://localhost:3002/api/ai-advanced \
+curl -X POST http://localhost:6002/api/ai-advanced \
   -H "Content-Type: application/json" \
   -d '{
     "text": "请帮我打开客厅和卧室的空调，并设置温度为26度"
@@ -284,12 +284,12 @@ curl -X POST http://localhost:3002/api/ai-advanced \
 
 ```bash
 # 关闭保姆间的扫地机
-curl -X POST http://localhost:3002/api/ai-advanced \
+curl -X POST http://localhost:6002/api/ai-advanced \
   -H "Content-Type: application/json" \
   -d '{"text": "关闭保姆间的扫地机"}'
 
 # 打开客厅的风扇
-curl -X POST http://localhost:3002/api/ai-advanced \
+curl -X POST http://localhost:6002/api/ai-advanced \
   -H "Content-Type: application/json" \
   -d '{"text": "打开客厅的风扇"}'
 ```
@@ -298,7 +298,7 @@ curl -X POST http://localhost:3002/api/ai-advanced \
 
 ```bash
 # 查询设备状态
-curl -X POST http://localhost:3002/api/ai-advanced \
+curl -X POST http://localhost:6002/api/ai-advanced \
   -H "Content-Type: application/json" \
   -d '{"text": "扫地机现在是什么状态"}'
 ```
@@ -307,7 +307,7 @@ curl -X POST http://localhost:3002/api/ai-advanced \
 
 ```bash
 # 组合指令
-curl -X POST http://localhost:3002/api/ai-advanced \
+curl -X POST http://localhost:6002/api/ai-advanced \
   -H "Content-Type: application/json" \
   -d '{"text": "关闭所有设备"}'
 ```
@@ -355,7 +355,7 @@ AI 接口使用 **Ollama** 作为后端模型服务，配置项在 `.env` 文件
 
 ```env
 # AI 配置
-OLLAMA_HOST=http://192.168.6.51:11434
+OLLAMA_HOST=http://192.168.1.51:11434
 AI_MODEL=qwen2.5:1.5b
 ```
 
@@ -363,7 +363,7 @@ AI_MODEL=qwen2.5:1.5b
 
 | 变量          | 默认值                      | 说明           |
 | ------------- | --------------------------- | -------------- |
-| `OLLAMA_HOST` | `http://192.168.6.51:11434` | Ollama服务地址 |
+| `OLLAMA_HOST` | `http://192.168.1.51:11434` | Ollama服务地址 |
 | `AI_MODEL`    | `qwen2.5:1.5b`              | 使用的AI模型   |
 
 ---
@@ -392,12 +392,12 @@ npm run start
 
 ```bash
 # 1. 发送简单指令
-curl -X POST http://localhost:3002/api/ai \
+curl -X POST http://localhost:6002/api/ai \
   -H "Content-Type: application/json" \
   -d '{"text": "打开卧室灯"}'
 
 # 2. 发送复杂指令
-curl -X POST http://localhost:3002/api/ai-advanced \
+curl -X POST http://localhost:6002/api/ai-advanced \
   -H "Content-Type: application/json" \
   -d '{"text": "晚上10点关闭所有电器"}'
 ```
@@ -413,7 +413,7 @@ curl -X POST http://localhost:3002/api/ai-advanced \
 | 返回格式 | 简洁      | 详细               |
 | 适用场景 | 快速控制  | 智能对话           |
 
-> **提示**：确保 Ollama 服务已在 `http://192.168.6.51:11434` 运行，并且已拉取 `qwen2.5:1.5b` 模型。
+> **提示**：确保 Ollama 服务已在 `http://192.168.1.51:11434` 运行，并且已拉取 `qwen2.5:1.5b` 模型。
 
 
 
