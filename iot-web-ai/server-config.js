@@ -736,7 +736,7 @@ app.get('/api/all-units', async (req, res) => {
 
 // 启动服务
 app.listen(WEB_PORT, '0.0.0.0', () => {
-  console.log(`配置服务启动：http://10.70.33.218:${WEB_PORT}`);
+  console.log(`配置服务启动：http://process.env.SERVER_IP:${WEB_PORT}`);
   console.log(`MQTT服务器: ${MQTT_SERVER}`);
   console.log(`MQTT主题前缀: ${MQTT_TOPIC_PREFIX}`);
   console.log(`设备配置文件: ./devices.json`);
