@@ -6,7 +6,7 @@
 ### 硬件要求
 - 一台能够运行Node.js的计算机（Windows、Linux或macOS）
 - ESP8266开发板（用于物联网设备）
-- MQTT Broker服务器（如Mosquitto）
+- MQTT Broker服务器（如EMQX或Mosquitto）
 - 网络连接
 
 ### 软件要求
