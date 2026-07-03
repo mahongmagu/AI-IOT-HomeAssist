@@ -105,7 +105,7 @@
    
    ```bash
    git clone <repository-url>
-   cd iot-web-ai/v8
+   cd iot-web-ai
    ```
    
    #### 2.2.2 安装依赖
