@@ -32,7 +32,25 @@ npm --version
 - 安装模型：`ollama pull qwen2.5:1.5b`
 
 ### 2.3 安装MQTT Broker
-推荐使用Mosquitto作为MQTT Broker：
+推荐使用EMQX或Mosquitto作为MQTT Broker：
+
+#### EMQX自建MQTT服务器配置指南
+##### 1. Ubuntu/Debian一键安装
+Bash
+curl -s https://assets.emqx.com/scripts/install-emqx-deb.sh | sudo bash
+sudo apt install emqx
+emqx start
+##### 2. 端口放行
+Bash
+sudo ufw allow 1883 # MQTT TCP端口
+sudo ufw allow 8083 # MQTT WebSocket端口
+sudo ufw allow 18083 # EMQX后台管理端口
+##### 3. MQTT账号密码认证
+1.访问后台：http://服务器公网IP:18083，默认账号admin，密码public
+2.进入访问控制→认证→密码认证，创建用户：用户名iot_admin，密码iot_123456
+3.开启权限控制，禁止匿名连接
+
+#### Mosquitto自建MQTT服务器配置指南
 - Windows: 下载安装包并安装
 - Linux: `sudo apt install mosquitto mosquitto-clients`
 - macOS: `brew install mosquitto`
