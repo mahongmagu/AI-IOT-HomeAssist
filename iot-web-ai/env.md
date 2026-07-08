@@ -291,7 +291,7 @@ if (error) {
 # ------------------------------
 # 服务器基础配置
 # ------------------------------
-SERVER_IP=192.168.6.40          # 服务器IP地址
+SERVER_IP=192.168.1.40          # 服务器IP地址
 NODE_ENV=production              # 运行环境: development / test / production
 
 # ------------------------------
@@ -304,8 +304,8 @@ WS_PORT=9090                     # WebSocket状态服务端口
 # ------------------------------
 # MQTT 服务器配置
 # ------------------------------
-MQTT_INTERNAL_SERVER=mqtt://192.168.6.40:1883       # 内网MQTT TCP地址
-MQTT_EXTERNAL_WS_SERVER=ws://192.168.6.40:8083/mqtt # 外网MQTT WebSocket地址
+MQTT_INTERNAL_SERVER=mqtt://192.168.1.40:1883       # 内网MQTT TCP地址
+MQTT_EXTERNAL_WS_SERVER=ws://192.168.1.40:8083/mqtt # 外网MQTT WebSocket地址
 MQTT_USERNAME=username                                     # MQTT认证用户名
 MQTT_PASSWORD=your-mqtt-password                          # MQTT认证密码
 MQTT_TOPIC_PREFIX=iotxxx/devicename                        # MQTT主题前缀
