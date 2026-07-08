@@ -181,26 +181,40 @@ ollama serve
 
 ### 5.3 启动IoT系统服务
 
-#### 方法一：分别启动两个服务
-```bash
-# 启动操作服务器（端口6000）
-npm run operation
+### 5.3.1 服务启动
 
-# 在另一个终端启动配置服务器（端口6001）
-npm run config
+#### 方法一：分别启动服务
+```bash
+npm run AI-CTL-server - 控制服务（端口6002）
+npm run AI-STA-server - 状态服务（端口8090）
+npm run AI-CFG-server - 配置服务（端口6001）
 ```
 
-#### 方法二：同时启动两个服务
+#### 方法二：同时启动所有服务
 ```bash
-npm run dev
+npm run pm2-iot
 ```
+
+### 5.3.2  查看服务状态
+
+```
+pm2 list
+```
+
+### 5.3.3 查看日志
+
+```
+pm2 logs
+```
+
+
 
 ## 6. 服务验证
 
 ### 6.1 操作服务器验证
-访问：`http://localhost:6000`
+访问：`http://localhost:6002`
 - 应能看到设备操作界面
-- 检查健康状态：`http://localhost:6000/health`
+- 检查健康状态：`http://localhost:6002/health`
 
 ### 6.2 配置服务器验证
 访问：`http://localhost:6001`
@@ -220,7 +234,7 @@ npm run dev
 4. 配置的设备信息将保存到 `devices.json` 文件中
 
 ### 7.2 设备操作
-1. 访问操作页面：`http://localhost:6000`
+1. 访问操作页面：`http://localhost:6002`
 2. 查看设备状态（从 `devices.json` 读取）
 3. 通过按钮或AI语音控制设备
 4. 设备状态变化会实时保存到 `devices.json` 文件中
@@ -295,7 +309,8 @@ git pull origin main
 npm install
 
 # 重启服务
-npm run dev
+pm2 delete all
+npm run pm2-iot
 ```
 
 ## 11. 安全建议
@@ -310,7 +325,7 @@ npm run dev
 ## 12. 系统架构说明
 
 ### 12.1 微服务架构
-- **操作服务器 (6000)**：处理设备控制和状态监控
+- **操作服务器 (6002)**：处理设备控制和状态监控
 - **配置服务器 (6001)**：处理设备配置管理
 - **共享数据存储**：`devices.json` 文件
 - **MQTT Broker**：设备通信中间件
