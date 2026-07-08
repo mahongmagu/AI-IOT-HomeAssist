@@ -14,9 +14,9 @@
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| MQTT Broker | mqtt://192.168.6.40:1883 | 内网TCP通信 |
-| MQTT Broker (WS) | ws://192.168.6.40:8083/mqtt | 外网WebSocket通信 |
-| Ollama | http://192.168.6.51:11434 | AI推理服务（可选） |
+| MQTT Broker | mqtt://192.168.1.40:1883 | 内网TCP通信 |
+| MQTT Broker (WS) | ws://192.168.1.40:8083/mqtt | 外网WebSocket通信 |
+| Ollama | http://192.168.1.51:11434 | AI推理服务（可选） |
 
 ## 2. 环境准备
 
@@ -47,22 +47,22 @@ npm install
 
 ```bash
 # 服务器IP
-SERVER_IP=192.168.6.149
+SERVER_IP=192.168.1.40
 
 # MQTT配置
-MQTT_INTERNAL_SERVER=mqtt://192.168.6.40:1883
-MQTT_EXTERNAL_WS_SERVER=ws://192.168.6.40:8083/mqtt
-MQTT_USERNAME=mh
-MQTT_PASSWORD=MaGu971204
+MQTT_INTERNAL_SERVER=mqtt://192.168.1.40:1883
+MQTT_EXTERNAL_WS_SERVER=ws://192.168.1.40:8083/mqtt
+MQTT_USERNAME=xx
+MQTT_PASSWORD=Mqtt_password
 MQTT_TOPIC_PREFIX=iot/device
 
 # AI配置（可选）
-OLLAMA_HOST=http://192.168.6.51:11434
+OLLAMA_HOST=http://192.168.1.51:11434
 AI_MODEL=qwen2.5:1.5b
 
 # 端口配置
-CONFIG_SERVICE_PORT=3001
-CONTROL_SERVICE_PORT=3002
+CONFIG_SERVICE_PORT=6001
+CONTROL_SERVICE_PORT=6002
 WS_PORT=8090
 
 # 离线检测配置
@@ -167,10 +167,10 @@ pm2 list
 
 ```bash
 # 控制服务
-curl http://localhost:3002/health
+curl http://localhost:6002/health
 
 # 配置服务
-curl http://localhost:3001/health
+curl http://localhost:6001/health
 
 # 状态服务（WebSocket）
 # 使用WebSocket客户端连接 ws://localhost:8090
@@ -254,7 +254,7 @@ MQTT TCP控制客户端（内网）错误: ErrorWithReasonCode: Connection refus
 
 ```bash
 # 1. 测试MQTT连接
-mosquitto_sub -h 192.168.6.40 -p 1883 -u "mh" -P "MaGu971204" -t "test" -v
+mosquitto_sub -h 192.168.1.40 -p 1883 -u "xx" -P "Mqtt_pawword" -t "test" -v
 
 # 2. 检查.env文件配置
 cat .env | grep MQTT
@@ -269,8 +269,8 @@ cat .env | grep MQTT
 
 ```bash
 # 检查端口是否被占用
-netstat -tlnp | grep 3002
-ss -tlnp | grep 3002
+netstat -tlnp | grep 6002
+ss -tlnp | grep 6002
 
 # 检查防火墙
 sudo ufw status
