@@ -8,9 +8,12 @@ const rateLimit = require('express-rate-limit');
 const { ChatOllama } = require('@langchain/ollama');
 const DataManager = require('./data-manager');
 const fs = require('fs');
+const http = require('http');
 
 const app = express();
 const dataManager = new DataManager('./devices.json');
+
+const CONFIG_SERVICE_PORT = parseInt(process.env.CONFIG_SERVICE_PORT) || 3001;
 
 // 为所有日志添加时间戳
 const originalConsoleLog = console.log.bind(console);
@@ -223,9 +226,9 @@ function getServerIP() {
 const SERVER_IP = process.env.SERVER_IP || getServerIP();
 
 // 内网MQTT服务器配置
-const MQTT_INTERNAL_SERVER = process.env.MQTT_INTERNAL_SERVER || 'mqtt://192.168.1.40:1883';
+const MQTT_INTERNAL_SERVER = process.env.MQTT_INTERNAL_SERVER || 'mqtt://192.168.6.40:1883';
 const MQTT_EXTERNAL_WS_SERVER = process.env.MQTT_EXTERNAL_WS_SERVER || `ws://${SERVER_IP}:8083/mqtt`; // EMQX WebSocket端口
-const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://192.168.1.51:11434';
+const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://192.168.6.51:11434';
 const WEB_PORT = parseInt(process.env.CONTROL_SERVICE_PORT) || 3002;
 const AI_MODEL = process.env.AI_MODEL || 'qwen2.5:1.5b';
 
@@ -242,8 +245,8 @@ const DATASETTING_TOPIC_SUFFIX = 'datasetting';  // 数据设置主题
 
 // MQTT连接选项
 const mqttOptions = {
-  username: process.env.MQTT_USERNAME || 'username',
-  password: process.env.MQTT_PASSWORD || 'your-mqtt-password',
+  username: process.env.MQTT_USERNAME || 'mh',
+  password: process.env.MQTT_PASSWORD || 'MaGu971204',
   clientId: `iot-control-${Math.random().toString(16).substr(2, 8)}`,
   clean: true,
   connectTimeout: 4000,
@@ -496,6 +499,73 @@ app.use(express.urlencoded({ limit: MAX_REQUEST_BODY_SIZE, extended: true }));
 
 // 提供静态文件
 app.use(express.static(path.join(__dirname, './')));
+
+// 代理设备管理API到配置服务
+function proxyToConfigService(req, res) {
+  const contentType = req.headers['content-type'] || 'application/json';
+  let bodyData = '';
+
+  if (req.body && typeof req.body === 'string') {
+    bodyData = req.body;
+  } else if (req.body && typeof req.body === 'object') {
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      const querystring = require('querystring');
+      bodyData = querystring.stringify(req.body);
+    } else {
+      bodyData = JSON.stringify(req.body);
+    }
+  }
+
+  const headers = {
+    'Content-Type': contentType,
+    'Content-Length': Buffer.byteLength(bodyData)
+  };
+
+  const options = {
+    hostname: 'localhost',
+    port: CONFIG_SERVICE_PORT,
+    path: req.url,
+    method: req.method,
+    headers
+  };
+
+  console.log(`[代理] 转发设备管理请求: ${req.method} ${req.path} -> localhost:${CONFIG_SERVICE_PORT}${req.path}`);
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let body = '';
+    proxyRes.on('data', (chunk) => {
+      body += chunk;
+    });
+    proxyRes.on('end', () => {
+      res.statusCode = proxyRes.statusCode || 200;
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        if (key !== 'transfer-encoding') {
+          res.setHeader(key, value);
+        }
+      }
+      res.send(body);
+    });
+  });
+
+  proxyReq.on('error', (err) => {
+    console.error(`[代理] 设备管理请求转发失败: ${err.message}`);
+    res.status(503).json({
+      code: 503,
+      data: null,
+      msg: '配置服务暂不可用，请稍后重试'
+    });
+  });
+
+  if (bodyData) {
+    proxyReq.write(bodyData);
+  }
+  proxyReq.end();
+}
+
+app.all('/api/devices', proxyToConfigService);
+app.all('/api/devices/:groupName', proxyToConfigService);
+app.all('/api/devices/:groupName/units', proxyToConfigService);
+app.all('/api/devices/:groupName/units/:unitId', proxyToConfigService);
 
 // 根路径直接返回 index.html
 app.get('/', (req, res) => {

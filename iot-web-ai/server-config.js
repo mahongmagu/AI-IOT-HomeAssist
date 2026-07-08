@@ -88,8 +88,8 @@ async function isUnitIdExists(groupId, unitId) {
 
 // 配置
 const WEB_PORT = parseInt(process.env.CONFIG_SERVICE_PORT) || 3001;
-const MQTT_SERVER = process.env.MQTT_SERVER || 'mqtt://192.168.1.40:1883';
-const MQTT_TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || 'iotxxx/devicename';
+const MQTT_SERVER = process.env.MQTT_SERVER || 'mqtt://192.168.6.40:1883';
+const MQTT_TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || 'iot/device';
 
 // 请求限制配置
 const MAX_REQUEST_BODY_SIZE = process.env.MAX_REQUEST_BODY_SIZE || '10mb';
@@ -175,7 +175,19 @@ app.get('/api/devices/:groupName', async (req, res) => {
 // 接口：创建设备组
 app.post('/api/devices', async (req, res) => {
   try {
-    let { name, displayName, location, units } = req.body;  // 添加location字段，移除id
+    const payload = req.body || {};
+    let name = payload.name || payload.groupName || payload.deviceGroupName || payload.group_name;
+    let displayName = payload.displayName || payload.display_name || payload.groupDisplayName || payload.deviceGroupDisplayName || name;
+    let location = payload.location ?? payload.groupLocation ?? payload.group_location ?? null;
+    let units = payload.units;
+
+    if (!Array.isArray(units) && Array.isArray(payload.unitList)) {
+      units = payload.unitList;
+    }
+    if (!Array.isArray(units) && Array.isArray(payload.items)) {
+      units = payload.items;
+    }
+
     const clientIP = getClientIP(req);
     
     // 输入验证
@@ -282,7 +294,19 @@ app.post('/api/devices', async (req, res) => {
 app.put('/api/devices/:groupName', async (req, res) => {
   try {
     const { groupName } = req.params;
-    let { name, displayName, location, units } = req.body;  // 添加location字段，保留id以确保一致性
+    const payload = req.body || {};
+    let name = payload.name || payload.groupName || payload.deviceGroupName || payload.group_name;
+    let displayName = payload.displayName || payload.display_name || payload.groupDisplayName || payload.deviceGroupDisplayName || name;
+    let location = payload.location ?? payload.groupLocation ?? payload.group_location ?? null;
+    let units = payload.units;
+
+    if (!Array.isArray(units) && Array.isArray(payload.unitList)) {
+      units = payload.unitList;
+    }
+    if (!Array.isArray(units) && Array.isArray(payload.items)) {
+      units = payload.items;
+    }
+
     const clientIP = getClientIP(req);
     
     // 输入验证
@@ -736,7 +760,7 @@ app.get('/api/all-units', async (req, res) => {
 
 // 启动服务
 app.listen(WEB_PORT, '0.0.0.0', () => {
-  console.log(`配置服务启动：http://process.env.SERVER_IP:${WEB_PORT}`);
+  console.log(`配置服务启动：http://10.70.33.218:${WEB_PORT}`);
   console.log(`MQTT服务器: ${MQTT_SERVER}`);
   console.log(`MQTT主题前缀: ${MQTT_TOPIC_PREFIX}`);
   console.log(`设备配置文件: ./devices.json`);
