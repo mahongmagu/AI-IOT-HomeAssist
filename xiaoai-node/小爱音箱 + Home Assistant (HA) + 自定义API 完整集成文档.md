@@ -45,9 +45,50 @@
 
 5. HA容器内已安装curl（默认自带，若没有可手动安装）。
 
-# 三、完整配置文件（configuration\.yaml）
+# 三、编辑配置文件（configuration\.yaml）
 
-包含两种请求方式，可同时配置，按需启用（推荐仅保留shell\_command），直接复制覆盖HA的 `configuration\.yaml` 文件即可。
+Docker 版 Home Assistant不用装任何插件，直接在 Linux 终端改配置文件：
+
+#### 第一步：进入 HA 容器内部终端
+
+在你的 Linux 服务器执行：
+
+```
+bash
+docker exec -it homeassistant bash
+```
+
+#### 第二步：编辑 configuration.yaml
+
+进去后执行：
+
+```
+nano /config/configuration.yaml
+```
+
+#### 第三步：把下面代码粘贴到文件最末尾
+
+包含两种请求方式，可同时配置，按需启用（推荐仅保留shell\_command），直接复制覆盖HA的 `configuration.yaml` 文件即可。
+
+```
+default_config:
+
+frontend:
+  themes: !include_dir_merge_named themes
+
+# ............curl.....................
+
+shell_command:
+  send_ai_request: 'curl -X POST http://192.168.6.40:3002/api/ai-advanced -H "Content-Type: application/json" -d ''{"text":"{{ text }}"}'''
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+```
+
+
+
+
 
 ```yaml
 default_config:
@@ -79,6 +120,28 @@ automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
 ```
+
+#### 第四步：保存退出
+
+按 Ctrl + O 保存
+回车确认
+按 Ctrl + X 退出
+
+#### 第五步：退出容器
+
+bash
+运行
+exit
+
+#### 第六步：重启 Home Assistant 生效
+
+bash
+运行
+docker restart homeassistant
+
+
+
+
 
 # 四、详细配置说明（分方案）
 
