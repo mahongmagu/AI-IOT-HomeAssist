@@ -10,7 +10,7 @@
 
 2. 小爱音箱不执行本地米家设备控制（避免播报“没有设备”）；
 
-3. 语音转文字，同步到HA的语音文字传感器（`sensor\.xiaomi\_l05b\_af0a\_conversation`）；
+3. 语音转文字，同步到HA的语音文字传感器（`sensor.xiaomi_l05b_af0a_conversation`）；
 
 4. HA自动化触发，通过请求方式（rest\_command / shell\_command）发送文字指令到自定义API；
 
@@ -20,11 +20,11 @@
 
 ## 2\. 网络环境说明
 
-- HA宿主机IP：`192\.168\.1\.51`
+- HA宿主机IP：`192.168.1.51`
 
-- 自定义API服务IP\+端口：`192\.168\.1\.40:6002`
+- 自定义API服务IP\+端口：`192.168.1.40:6002`
 
-- HA容器运行方式：`\-\-net=host`（与宿主机同网络，避免局域网访问失败）
+- HA容器运行方式：`--net=host`（与宿主机同网络，避免局域网访问失败）
 
 ## 3\. 两种请求方式对比（核心差异）
 
@@ -35,7 +35,7 @@
 
 # 二、环境要求（前置条件）
 
-1. HA安装方式：Docker容器，且启动时添加 `\-\-net=host` 参数；
+1. HA安装方式：Docker容器，且启动时添加 `--net=host` 参数；
 
 2. HA已安装集成：Xiaomi MIoT（自定义集成，用于接入小爱音箱）；
 
@@ -79,7 +79,31 @@ frontend:
 # ............curl.....................
 
 shell_command:
-  send_ai_request: 'curl -X POST http://192.168.6.40:3002/api/ai-advanced -H "Content-Type: application/json" -d ''{"text":"{{ text }}"}'''
+  send_ai_request: 'curl -X POST http://192.168.1.40:6002/api/ai-advanced -H "Content-Type: application/json" -d ''{"text":"{{ text }}"}'''
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+```
+
+
+
+如果需要调用多个API，可使用如下模版：
+
+```
+default_config:
+
+frontend:
+  themes: !include_dir_merge_named themes
+
+# ............curl.....................
+
+shell_command:
+  # 普通AI高级接口（原有）
+  send_ai_request: 'curl -X POST http://192.168.1.40:6002/api/ai-advanced -H "Content-Type: application/json" -d ''{"text":"{{ text }}"}'''
+
+  # 定时/日程AI接口（新增）
+  send_schedule_request: 'curl -X POST http://192.168.1.40:6002/api/ai-schedule -H "Content-Type: application/json" -d ''{"text":"{{ text }}"}'''
 
 automation: !include automations.yaml
 script: !include scripts.yaml
@@ -233,32 +257,30 @@ mode: single  # 单次模式，避免重复触发
 
 
 ```yaml
-alias: 小爱语音转发到AI接口 
-
-trigger:  
-
-​	- platform: state    
-
-​	entity_id: sensor.xiaomi_l05b_af0a_conversation 
-
-condition:  
-
-​	- condition: template    
-
-​	value_template: "{{ trigger.to_state.state | trim != '' }}" 
-
-action:  
-
-​	- service: shell_command.send_ai_request    
-
-​		data:     
-
-​	 	text: "{{ trigger.to_state.state }}" mode: single
+alias: 小爱语音转发到AI接口（shell_command推荐版）
+triggers:
+  - entity_id: sensor.xiaomi_l05b_af0a_conversation
+    trigger: state
+conditions:
+  - condition: template
+    value_template: "{{ trigger.to_state.state | trim != '' }}"
+actions:
+  - data:
+      text: "{{ trigger.to_state.state }}"
+    action: shell_command.send_ai_request
+  - delay: "00:00:01"
+  - data:
+      entity_id: media_player.xiaomi_l05b_af0a
+      action: play_text
+      params:
+        text: 操作成功
+    action: xiaomi_miot.call_action
+mode: single
 ```
 
 
 
-## 使用call action
+#### 文件说明：
 
 ```yaml
 alias: 小爱语音转发到AI接口（shell_command推荐版）
@@ -285,6 +307,68 @@ action:
 mode: single
 ```
 
+
+
+
+
+使用条件判断执行不同的API调用可参照如下模版：
+
+
+
+```
+alias: 小爱语音转发到AI接口（区分定时日程/普通指令）
+trigger:
+  - platform: state
+    entity_id: sensor.xiaomi_l05b_af0a_conversation
+condition:
+  - condition: template
+    value_template: "{{ trigger.to_state.state | trim != '' }}"
+action:
+  - variables:
+      user_text: "{{ trigger.to_state.state | trim }}"
+      # 把所有时间关键词拼接成正则
+      time_regex: "点|分|秒|时|刻|钟|今天|明天|后天|昨天|前天|每天|每周|每月|每年|周一|周二|周三|周四|周五|周六|周日|这周|下周|上周|上午|下午|早晨|中午|晚上|凌晨|深夜|定时|提醒|预约|计划|稍后|今晚|当天|当月|本周|本月|今年"
+
+  - if:
+      - condition: template
+        value_template: "{{ user_text | regex_search(time_regex) }}"
+    then:
+      - service: shell_command.send_schedule_request
+        data:
+          text: "{{ user_text }}"
+      - delay: "00:00:01"
+      - service: xiaomi_miot.call_action
+        data:
+          entity_id: media_player.xiaomi_l05b_af0a
+          action: play_text
+          params:
+            text: "已设置提醒"
+
+  - if:
+      - condition: template
+        value_template: "{{ not user_text | regex_search(time_regex) }}"
+    then:
+      - service: shell_command.send_ai_request
+        data:
+          text: "{{ user_text }}"
+      - delay: "00:00:01"
+      - service: xiaomi_miot.call_action
+        data:
+          entity_id: media_player.xiaomi_l05b_af0a
+          action: play_text
+          params:
+            text: "操作成功"
+mode: single
+```
+
+
+
+
+
+
+
+
+
 ## 使用play_text
 
 ```yaml
@@ -309,6 +393,14 @@ action:
       text: "操作成功"  # 可修改为“打开成功”“已关闭”等
 mode: single
 ```
+
+
+
+### 配置步骤：
+
+设置->自动化与场景->小爱语音转发到AI接口（shell_command推荐版）->右上角（三个点）->YAML编辑
+
+将配置拷贝到YAML中，并保存
 
 # 六、关键实体ID查找方法
 
