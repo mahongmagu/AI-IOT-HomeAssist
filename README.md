@@ -1,6 +1,14 @@
 AI-IOT-HomeAssist是基于AI控制的智能控制系统，可广泛应用于IOT，智能家居控制等，依托后端AI智能体可实现自然语言或语音指令控制。
 
-## 原型说明和部署可参照
+## 功能及架构
+
+功能及架构请参照：
+
+[IoT智能控制系统架构及功能]: ./iot-web-ai/IoT智能控制系统架构及功能.md
+
+
+
+## 原型说明可参照
 
 [IoT自建MQTT远程控制系统完整项目包]: IoT自建MQTT远程控制系统完整项目包.docx。
 
@@ -11,22 +19,28 @@ AI-IOT-HomeAssist是基于AI控制的智能控制系统，可广泛应用于IOT�
 程序模块目录结构如下，每个程序模块目录下有详细的部署和使用说明：
 
 	iot-web-ai：服务端及H5前端
-
+	
 	ESP：基于ESP8266/ESP32的设备控制，Arduino程序样例
-
+	
 	HarmonyOS-ArkTS：华为鸿蒙手机端程序
-
+	
 	xiaoai-node：与小米小爱音箱集成的AI语音控制集成
 
 
 
 ## 安装配置过程
 
-1、进入iot-web-ai目录，参照：[IoT智能控制系统安装部署文档.md]()安装并启动服务端
+1、进入iot-web-ai目录，仔细阅读
 
-2、DevEco Studio编译安装\HarmonyOS-ArkTS目录下的纯血鸿蒙app并上载到华为手机端（后续会发布到app store）
+[readme.md]: ./iot-web-ai/readme.md
 
-3、如果需要参照[xiaoai-node\小爱音箱 + Home Assistant (HA) + 自定义API 完整集成文档.md]()集成智能语音输入设备
+文档
+
+2、参照：[IoT智能控制系统安装部署文档.md]()安装并启动服务端
+
+3、DevEco Studio编译安装\HarmonyOS-ArkTS目录下的纯血鸿蒙app并上载到华为手机端（后续会发布到app store）
+
+4、如果需要参照[xiaoai-node\小爱音箱 + Home Assistant (HA) + 自定义API 完整集成文档.md]()集成智能语音输入设备
 
 
 ## 简明操作步骤：

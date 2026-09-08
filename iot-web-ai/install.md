@@ -37,7 +37,7 @@ npm start
 
 ## 三、访问使用
 
-- 手机浏览器打开：`http://你的服务器公网IP:3002`
+- 手机浏览器打开：`http://你的服务器公网IP:6002`
 - 功能：
   - 手动开关设备
   - 输入文字 AI 自动控制（打开、关闭、开灯、关灯等）
@@ -355,9 +355,9 @@ pm2 set pm2-logrotate:retain 7
 {
   "scripts": {
     // ============ 开发模式：直接启动（需要多个终端） ============
-    "start": "node server-control-tcp.js",        // 启动控制服务（端口3002）：定时任务管理、设备控制API
+    "start": "node server-control-tcp.js",        // 启动控制服务（端口6002）：定时任务管理、设备控制API
     "status": "node server-status-ws.js",        // 启动状态服务（端口8090）：WebSocket实时状态推送
-    "config": "node server-config.js",           // 启动配置服务（端口3001）：设备配置管理
+    "config": "node server-config.js",           // 启动配置服务（端口6001）：设备配置管理
     "home-assistant-AI": "concurrently \"npm:start\" \"npm:status\" \"npm:config\"",  // 同时启动三个服务（需安装concurrently）
 
     // ============ PM2生产模式：后台启动（推荐） ============
@@ -1143,7 +1143,7 @@ function shouldAlert(alertType) {
 2. 考虑重启服务
 3. 分析内存泄漏原因
 
-服务地址: http://192.168.6.40:3002
+服务地址: http://192.168.6.40:6002
 ```
 
 ### Slack 通知
