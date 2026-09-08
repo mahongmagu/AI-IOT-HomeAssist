@@ -2,7 +2,10 @@ AI-IOT-HomeAssist是基于AI控制的智能控制系统，可广泛应用于IOT�
 
 ## 功能及架构
 
-功能及架构请参照：[IoT智能控制系统架构及功能](./iot-web-ai/IoT智能控制系统架构及功能.md)
+功能及架构请参照：
+
+[IoT智能控制系统架构及功能](./iot-web-ai/IoT智能控制系统架构及功能.md)
+
 
 ## 原型说明可参照
 
@@ -27,6 +30,7 @@ AI-IOT-HomeAssist是基于AI控制的智能控制系统，可广泛应用于IOT�
 1、进入iot-web-ai目录，仔细阅读[readme.md](./iot-web-ai/readme.md) 文档
 
 2、参照：[IoT智能控制系统安装部署文档.md](.//iot-web-ai/IoT智能控制系统安装部署文档.md)安装并启动服务端
+
 
 3、DevEco Studio编译安装\HarmonyOS-ArkTS目录下的纯血鸿蒙app并上载到华为手机端（后续会发布到app store）
 
