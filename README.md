@@ -4,7 +4,7 @@ AI-IOT-HomeAssist是基于AI控制的智能控制系统，可广泛应用于IOT�
 
 功能及架构请参照：
 
-[IoT智能控制系统架构及功能]: ./iot-web-ai/IoT智能控制系统架构及功能.md
+[IoT智能控制系统架构及功能]: [./iot-web-ai/IoT智能控制系统架构及功能.md]
 
 
 
@@ -32,7 +32,7 @@ AI-IOT-HomeAssist是基于AI控制的智能控制系统，可广泛应用于IOT�
 
 1、进入iot-web-ai目录，仔细阅读
 
-[readme.md]: ./iot-web-ai/readme.md
+[readme.md]: [./iot-web-ai/readme.md]
 
 文档
 
