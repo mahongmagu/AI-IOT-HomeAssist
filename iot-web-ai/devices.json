@@ -1,4 +1,75 @@
 {
+  "AC01": {
+    "name": "AC01",
+    "displayName": "空调一",
+    "id": "keting-AC-23343313",
+    "location": "客厅",
+    "lowPower": true,
+    "units": [
+      {
+        "id": "keting-AC-23343313_kg01-6432",
+        "name": "kg01",
+        "status": "AUTO",
+        "type": "control"
+      },
+      {
+        "id": "keting-AC-23343313_kongzhimoshi-5321",
+        "name": "控制模式",
+        "status": "手动",
+        "type": "data"
+      },
+      {
+        "id": "keting-AC-23343313_wendushangxian-6735",
+        "name": "温度上限",
+        "status": "28",
+        "type": "data"
+      },
+      {
+        "id": "keting-AC-23343313_wenduxiaxian-5249",
+        "name": "温度下限",
+        "status": "20",
+        "type": "data"
+      },
+      {
+        "id": "keting-AC-23343313_qishijiaodu-9064",
+        "name": "起始角度",
+        "status": "0",
+        "type": "data"
+      },
+      {
+        "id": "keting-AC-23343313_zhongzhijiaodu-1986",
+        "name": "终止角度",
+        "status": "60",
+        "type": "data"
+      },
+      {
+        "id": "keting-AC-23343313_huanxingshijian-7645",
+        "name": "唤醒时间",
+        "status": "5",
+        "type": "data"
+      }
+    ]
+  },
+  "wdj": {
+    "name": "wdj",
+    "displayName": "温度计",
+    "id": "keting-wdj-46716033",
+    "location": "客厅",
+    "units": [
+      {
+        "id": "keting-wdj-46716033_wdcgq-8684",
+        "name": "温度传感器",
+        "status": "25",
+        "type": "state"
+      },
+      {
+        "id": "keting-wdj-46716033_fasongjiange-6920",
+        "name": "发送间隔",
+        "status": "30",
+        "type": "data"
+      }
+    ]
+  },
   "sdj": {
     "name": "sdj",
     "displayName": "扫地机",
@@ -22,7 +93,7 @@
       {
         "id": "keting-shg-64771774_fengshan-0838",
         "name": "风扇",
-        "status": "ON",
+        "status": "OFF",
         "type": "control"
       },
       {
@@ -58,7 +129,7 @@
       {
         "id": "keting-shg-64771774_wenduchuanganqi-5906",
         "name": "温度传感器",
-        "status": "27",
+        "status": "35",
         "type": "state"
       },
       {
@@ -71,38 +142,6 @@
         "id": "keting-shg-64771774_wenduxiaxianzhi-1602",
         "name": "温度下线值",
         "status": "26",
-        "type": "data"
-      }
-    ]
-  },
-  "test": {
-    "name": "test",
-    "displayName": "测试设备",
-    "id": "0000-test-16337710",
-    "location": null,
-    "units": [
-      {
-        "id": "0000-test-16337710_kaiguan-3871",
-        "name": "开关",
-        "status": "ON",
-        "type": "control"
-      },
-      {
-        "id": "0000-test-16337710_zhuangtai-1151",
-        "name": "状态",
-        "status": "ON",
-        "type": "state"
-      },
-      {
-        "id": "0000-test-16337710_wenben-4757",
-        "name": "文本",
-        "status": "上帝",
-        "type": "text"
-      },
-      {
-        "id": "0000-test-16337710_shuzi-8879",
-        "name": "数字",
-        "status": "0",
         "type": "data"
       }
     ]
@@ -155,11 +194,74 @@
       },
       {
         "id": "keting-lyws-57134878_feedspeed-6847",
-        "name": "feedspeed",
+        "name": "喂食速度",
+        "status": "30",
+        "type": "data"
+      }
+    ]
+  },
+  "ys01": {
+    "name": "ys01",
+    "displayName": "演示设备",
+    "id": "shufang-ys01-33220147",
+    "location": "书房",
+    "units": [
+      {
+        "id": "shufang-ys01-33220147_youyanjikaiguan-6759",
+        "name": "油烟机开关",
+        "status": "ON",
+        "type": "control"
+      },
+      {
+        "id": "shufang-ys01-33220147_test01-7522",
+        "name": "test01",
+        "status": "20",
+        "type": "state",
+        "customIcon": "🌀"
+      }
+    ]
+  },
+  "ys02": {
+    "name": "ys02",
+    "displayName": "演示设备02",
+    "id": "kewo-ys02-62982554",
+    "location": "客卧",
+    "units": [
+      {
+        "id": "kewo-ys02-62982554_ys001-7911",
+        "name": "ys001",
+        "status": "ON",
+        "type": "control",
+        "customIcon": "📡"
+      },
+      {
+        "id": "kewo-ys02-62982554_ys002-8530",
+        "name": "ys002",
+        "status": "101",
+        "type": "state"
+      }
+    ]
+  },
+  "kqyws": {
+    "name": "kqyws",
+    "displayName": "孔雀鱼喂食",
+    "id": "keting-kqyws-30616007",
+    "location": "客厅",
+    "units": [
+      {
+        "id": "keting-kqyws-30616007_weishiqi-0344",
+        "name": "喂食器",
+        "status": "OFF",
+        "type": "control",
+        "customIcon": "🐟"
+      },
+      {
+        "id": "keting-kqyws-30616007_weishisudu-8389",
+        "name": "喂食速度",
         "status": "20",
         "type": "data"
       }
     ]
   },
-  "lastUpdated": "2026-05-28T03:53:59.981Z"
+  "lastUpdated": "2026-09-08T07:15:56.861Z"
 }

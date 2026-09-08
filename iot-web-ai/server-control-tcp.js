@@ -1,5 +1,5 @@
 // server-control-tcp.js - V11 TCP控制指令服务（内网）
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const mqtt = require('mqtt');
 const cors = require('cors');
@@ -13,7 +13,7 @@ const http = require('http');
 const app = express();
 const dataManager = new DataManager('./devices.json');
 
-const CONFIG_SERVICE_PORT = parseInt(process.env.CONFIG_SERVICE_PORT) || 3001;
+const CONFIG_SERVICE_PORT = parseInt(process.env.CONFIG_SERVICE_PORT) || 6001;
 
 // 为所有日志添加时间戳
 const originalConsoleLog = console.log.bind(console);
@@ -67,12 +67,78 @@ function saveSchedules(schedules) {
 
 // ===== 中文时间解析支持 =====
 function chineseToNumber(ch) {
-  const map = { '零':0,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'十一':11,'十二':12 };
   if (!ch) return null;
   if (/^\d+$/.test(ch)) return parseInt(ch, 10);
-  if (map[ch] !== undefined) return map[ch];
-  // handle compound like 十三
-  if (ch.length === 2 && ch[0] === '十') return 10 + (map[ch[1]] || 0);
+  
+  const chineseDigits = {'零':0, '一':1, '二':2, '两':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9};
+  
+  // 简单映射表
+  const simpleMap = { '十':10, '十一':11, '十二':12, '十三':13, '十四':14, '十五':15, '十六':16, '十七':17, '十八':18, '十九':19, '二十':20, '三十':30 };
+  if (simpleMap[ch] !== undefined) return simpleMap[ch];
+  
+  // 处理复合数字: 二十、三十、四十、五十二等
+  let result = 0;
+  let temp = 0;
+  
+  for (const char of ch) {
+    if (char === '十') {
+      result += temp * 10 || 10;
+      temp = 0;
+    } else {
+      temp = chineseDigits[char] || 0;
+    }
+  }
+  result += temp;
+  return result > 0 ? result : null;
+}
+
+/**
+ * 从用户输入中提取相对时间（如 "5分钟"、"二十分钟"、"半小时"）
+ * @param {string} text - 用户输入的文本
+ * @returns {string|null} - 相对时间字符串，如 "20分钟"、"1小时"，如果无法提取则返回null
+ */
+function extractRelativeTime(text) {
+  // 匹配模式: 阿拉伯数字 + 时间单位 + 后
+  // 例如: "5分钟后"、"30秒后"、"1小时后"
+  const arabicMatch = text.match(/(\d+)\s*(分钟|分|小时|时|秒)\s*后/);
+  if (arabicMatch) {
+    const value = parseInt(arabicMatch[1]);
+    const unit = arabicMatch[2];
+    return `${value}${unit === '分' ? '分钟' : unit === '时' ? '小时' : unit}`;
+  }
+  
+  // 匹配模式: 中文数字 + 时间单位 + 后
+  // 例如: "二十分钟后"、"半小时后"、"两小时后"
+  const chinesePatterns = [
+    /(半)\s*(小时|时|分钟|分|秒)\s*后/,  // 半小时后
+    /([零一二两三四五六七八九十]+)\s*(小时|时|分钟|分|秒)\s*后/,  // 二十分钟后、两小时后
+    /([零一二两三四五六七八九十]+)\s*(分|秒)\s*后/  // 五秒后
+  ];
+  
+  for (const pattern of chinesePatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      let value;
+      const unit = match[2];
+      
+      if (match[1] === '半') {
+        // 半小时 = 30分钟，半小时 = 30分钟
+        if (unit === '小时' || unit === '时') {
+          return '30分钟';
+        } else {
+          return null;  // 半分钟等不支持
+        }
+      }
+      
+      // 转换中文数字
+      value = chineseToNumber(match[1]);
+      if (value !== null) {
+        const normalizedUnit = unit === '分' ? '分钟' : unit === '时' ? '小时' : unit;
+        return `${value}${normalizedUnit}`;
+      }
+    }
+  }
+  
   return null;
 }
 
@@ -226,10 +292,10 @@ function getServerIP() {
 const SERVER_IP = process.env.SERVER_IP || getServerIP();
 
 // 内网MQTT服务器配置
-const MQTT_INTERNAL_SERVER = process.env.MQTT_INTERNAL_SERVER || 'mqtt://192.168.6.40:1883';
+const MQTT_INTERNAL_SERVER = process.env.MQTT_INTERNAL_SERVER || 'mqtt://192.168.1.40:1883';
 const MQTT_EXTERNAL_WS_SERVER = process.env.MQTT_EXTERNAL_WS_SERVER || `ws://${SERVER_IP}:8083/mqtt`; // EMQX WebSocket端口
-const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://192.168.6.51:11434';
-const WEB_PORT = parseInt(process.env.CONTROL_SERVICE_PORT) || 3002;
+const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://192.168.1.51:11434';
+const WEB_PORT = parseInt(process.env.CONTROL_SERVICE_PORT) || 6002;
 const AI_MODEL = process.env.AI_MODEL || 'qwen2.5:1.5b';
 
 // 请求限制配置
@@ -245,8 +311,8 @@ const DATASETTING_TOPIC_SUFFIX = 'datasetting';  // 数据设置主题
 
 // MQTT连接选项
 const mqttOptions = {
-  username: process.env.MQTT_USERNAME || 'mh',
-  password: process.env.MQTT_PASSWORD || 'MaGu971204',
+  username: process.env.MQTT_USERNAME || 'xx',
+  password: process.env.MQTT_PASSWORD || 'xxxxxxxx',
   clientId: `iot-control-${Math.random().toString(16).substr(2, 8)}`,
   clean: true,
   connectTimeout: 4000,
@@ -273,25 +339,70 @@ let cachedStates = {};
 // 设备最后活跃时间记录
 let deviceLastActive = {};
 
+// 设备离线标记集合（防止每30秒重复打印离线日志）
+const offlineDevices = new Set();
+
 // 从环境变量读取离线检测配置
 const OFFLINE_TIMEOUT = parseInt(process.env.OFFLINE_TIMEOUT) || 5 * 60 * 1000; // 默认5分钟
 const CHECK_INTERVAL = parseInt(process.env.CHECK_INTERVAL) || 30 * 1000; // 默认30秒
 
-// 更新设备活跃时间
+// 获取设备的离线超时时间
+// lowPower设备：3倍唤醒周期（分钟→毫秒），兜底使用OFFLINE_TIMEOUT
+// 普通设备：OFFLINE_TIMEOUT
+function getOfflineTimeout(unitId) {
+  for (const [groupName, groupConfig] of Object.entries(cachedDevices)) {
+    if (groupName === 'lastUpdated' || !groupConfig?.units) continue;
+    if (groupConfig.lowPower === true) {
+      const unit = groupConfig.units.find(u => u.id === unitId);
+      if (unit) {
+        const wakeupUnit = groupConfig.units.find(u =>
+          u.name === '唤醒时间' || u.id.includes('huanxingshijian')
+        );
+        if (wakeupUnit && wakeupUnit.status) {
+          const wakeMinutes = parseInt(wakeupUnit.status) || 5;
+          return wakeMinutes * 3 * 60 * 1000;
+        }
+        return OFFLINE_TIMEOUT * 3;
+      }
+    }
+  }
+  return OFFLINE_TIMEOUT;
+}
+
+// 更新设备活跃时间（只对control类型刷新；非control类型跳过）
 function updateDeviceActive(unitId) {
-  deviceLastActive[unitId] = Date.now();
+  let isControl = false;
+  for (const [groupName, groupConfig] of Object.entries(cachedDevices)) {
+    if (groupName === 'lastUpdated' || !groupConfig?.units) continue;
+    const unit = groupConfig.units.find(u => u.id === unitId);
+    if (unit) {
+      isControl = unit.type === 'control';
+      break;
+    }
+  }
+  if (isControl) {
+    deviceLastActive[unitId] = Date.now();
+    if (offlineDevices.has(unitId)) {
+      offlineDevices.delete(unitId);
+      console.log(`设备恢复在线: ${unitId}`);
+    }
+  }
 }
 
 // 检查并更新离线状态
 async function checkOfflineDevices() {
   const now = Date.now();
-  
+
   for (const [unitId, lastActive] of Object.entries(deviceLastActive)) {
-    if (now - lastActive > OFFLINE_TIMEOUT) {
-      // 更新缓存状态为OFFLINE
+    const timeout = getOfflineTimeout(unitId);
+    if (now - lastActive > timeout) {
+      // 更新缓存状态为OFFLINE，且仅首次判定时打印日志（去重）
       if (cachedStates[unitId] !== 'OFFLINE') {
         cachedStates[unitId] = 'OFFLINE';
-        console.log(`设备离线: ${unitId}`);
+      }
+      if (!offlineDevices.has(unitId)) {
+        offlineDevices.add(unitId);
+        console.log(`设备离线: ${unitId}（超时 ${Math.round(timeout/60000)} 分钟无消息）`);
       }
     }
   }
@@ -299,7 +410,7 @@ async function checkOfflineDevices() {
 
 // 启动定时检查
 setInterval(checkOfflineDevices, CHECK_INTERVAL);
-console.log(`设备离线检测已启动 - 超时时间: ${OFFLINE_TIMEOUT / 1000}秒, 检查间隔: ${CHECK_INTERVAL / 1000}秒`);
+console.log(`设备离线检测已启动 - 普通设备超时: ${OFFLINE_TIMEOUT / 1000}秒, lowPower设备: 3倍唤醒周期, 检查间隔: ${CHECK_INTERVAL / 1000}秒`);
 
 // 新增：初始化设备活跃时间（只监控control类型）
 async function initDeviceActiveTime() {
@@ -330,6 +441,12 @@ const client = mqtt.connect(MQTT_INTERNAL_SERVER, mqttOptions);
 client.on('connect', () => {
   console.log('MQTT TCP控制客户端（内网）连接成功');
   mqttConnected = true;
+  // 订阅control设备的state主题，接收设备上报状态以刷新活跃时间
+  const stateTopic = `${MQTT_TOPIC_PREFIX}/+/${STATE_TOPIC_SUFFIX}`;
+  client.subscribe(stateTopic, { qos: 1 }, (err) => {
+    if (err) console.error(`订阅状态主题失败（控制服务）:`, err);
+    else console.log(`已订阅状态主题（控制服务）: ${stateTopic}`);
+  });
 });
 
 client.on('error', (error) => {
@@ -346,15 +463,42 @@ client.on('close', () => {
   mqttConnected = false;
 });
 
+// 接收设备状态，更新活跃时间（控制服务使用，保证/api/status在线状态准确）
+client.on('message', (topic, message) => {
+  const topicParts = topic.split('/');
+  if (topicParts.length === 4 && topicParts[0] + '/' + topicParts[1] === MQTT_TOPIC_PREFIX) {
+    const unitId = topicParts[2];
+    updateDeviceActive(unitId);
+    // 更新缓存的状态值（同步/api/status的cachedStates）
+    const topicType = topicParts[3];
+    if (topicType === STATE_TOPIC_SUFFIX) {
+      let stateValue;
+      try { stateValue = JSON.parse(message.toString()); } catch { stateValue = message.toString(); }
+      cachedStates[unitId] = stateValue;
+      // "控制模式"单元（lowPower设备自报自动/手动）持久化到devices.json，
+      // 保证前端/鸿蒙App初始加载时能获取正确的"恢复自动"按钮启用状态
+      const isModeUnit = Object.values(cachedDevices).some(g =>
+        g && Array.isArray(g.units) && g.units.some(u => u.id === unitId && u.name === '控制模式'));
+      if (isModeUnit) {
+        dataManager.updateDeviceStatus(unitId, String(stateValue)).catch(err => {
+          console.error('持久化控制模式状态失败:', err.message);
+        });
+      }
+    }
+  }
+});
+
 // 验证设备命令
 function validateDeviceCommand(cmd) {
   if (!cmd) return false;
   const upperCmd = cmd.toString().toUpperCase();
-  return ['ON', 'OFF'].includes(upperCmd);
+  // AUTO供低功耗DeepSleep设备（如AC01）退出手动模式恢复自动温控
+  return ['ON', 'OFF', 'QUERY', 'AUTO'].includes(upperCmd);
 }
 
 // 通过内网TCP/MQTT发送控制指令
-function sendMqttControl(cmd, unitId) {
+// retain=true用于低功耗DeepSleep设备（离线时间长，指令保留到设备唤醒时接收）
+function sendMqttControl(cmd, unitId, retain = false) {
   if (!mqttConnected) {
     console.error('MQTT TCP控制客户端（内网）未连接，无法发送指令');
     return false;
@@ -364,11 +508,11 @@ function sendMqttControl(cmd, unitId) {
   const topic = `${MQTT_TOPIC_PREFIX}/${unitId}/${CTRL_TOPIC_SUFFIX}`;
   const message = cmd.toUpperCase();
 
-  console.log(`发送MQTT TCP控制指令（内网）到 ${topic}: ${message}`);
-  
-  client.publish(topic, message, { 
-    qos: 1,      // 至少一次传递
-    retain: false // 不保留消息
+  console.log(`发送MQTT TCP控制指令（内网）到 ${topic}: ${message}${retain ? ' [retained]' : ''}`);
+
+  client.publish(topic, message, {
+    qos: 1,        // 至少一次传递
+    retain: retain // 低功耗设备保留消息，常在线设备不保留
   }, (err) => {
     if (err) {
       console.error('MQTT TCP控制指令发送失败:', err);
@@ -392,14 +536,15 @@ function sendMqttTextSetting(value, unitId) {
 
   console.log(`发送MQTT TCP文本设置指令（内网）到 ${topic}: ${message}`);
   
+  // textsetting 文本设置主题同样需要 retained，理由同 datasetting
   client.publish(topic, message, { 
     qos: 1,
-    retain: false
+    retain: true
   }, (err) => {
     if (err) {
       console.error('MQTT TCP文本设置指令发送失败:', err);
     } else {
-      console.log('MQTT TCP文本设置指令发送成功');
+      console.log('MQTT TCP文本设置指令发送成功（retained）');
     }
   });
   return true;
@@ -418,14 +563,18 @@ function sendMqttDataSetting(value, unitId) {
 
   console.log(`发送MQTT TCP数据设置指令（内网）到 ${topic}: ${message}`);
   
+  // datasetting 参数主题必须 retained：
+  // 1. 覆盖 broker 上残留的旧 retained 消息（设备 publishAllParams 会发旧值）
+  // 2. 低功耗设备 DeepSleep 唤醒后订阅瞬间即可拿到最新值
+  // 3. 常在线设备重启重连也能立即同步最新参数
   client.publish(topic, message, { 
     qos: 1,
-    retain: false
+    retain: true
   }, (err) => {
     if (err) {
       console.error('MQTT TCP数据设置指令发送失败:', err);
     } else {
-      console.log('MQTT TCP数据设置指令发送成功');
+      console.log('MQTT TCP数据设置指令发送成功（retained）');
     }
   });
   return true;
@@ -453,25 +602,47 @@ async function loadInitialDevices() {
   }
 }
 
-// 监听 devices.json 文件变化
+// 监听 devices.json 文件变化（监听目录而非文件，避免rename导致inotify失效）
+let configReloadTimer = null;
 function watchDevicesFile() {
   try {
-    fs.watch('./devices.json', async (eventType, filename) => {
-      if (eventType === 'change') {
+    // 监听目录而非文件
+    const dirPath = './';
+    fs.watch(dirPath, (eventType, filename) => {
+      // 过滤掉临时文件
+      if (filename === 'devices.json.tmp') return;
+      
+      // 处理change和rename事件（原子写入会触发rename事件）
+      if ((eventType === 'change' || eventType === 'rename') && filename === 'devices.json') {
         console.log('检测到 devices.json 文件变化，正在更新缓存...');
-        try {
-          cachedDevices = await dataManager.getDevices();
-          
-          // 重建状态缓存
-          cachedStates = {};
-          for (const [groupName, config] of Object.entries(cachedDevices)) {
-            for (const unit of config.units) {
-              cachedStates[unit.id] = unit.status;
-            }
-          }
-        } catch (error) {
-          console.error('更新设备配置缓存失败:', error);
+        
+        // 防抖：如果在50ms内再次触发，则重新计时
+        if (configReloadTimer) {
+          clearTimeout(configReloadTimer);
         }
+        
+        configReloadTimer = setTimeout(async () => {
+          try {
+            cachedDevices = await dataManager.getDevices();
+            
+            // 重建状态缓存
+            cachedStates = {};
+            for (const [groupName, config] of Object.entries(cachedDevices)) {
+              if (config.units) {
+                for (const unit of config.units) {
+                  cachedStates[unit.id] = unit.status;
+                }
+              }
+            }
+            
+            // 重新初始化新设备的活跃时间
+            initDeviceActiveTime();
+            
+            console.log('设备配置缓存更新完成');
+          } catch (error) {
+            console.error('更新设备配置缓存失败:', error);
+          }
+        }, 50);
       }
     });
   } catch (error) {
@@ -497,8 +668,29 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: MAX_REQUEST_BODY_SIZE }));
 app.use(express.urlencoded({ limit: MAX_REQUEST_BODY_SIZE, extended: true }));
 
-// 提供静态文件
-app.use(express.static(path.join(__dirname, './')));
+// 敏感资源访问拦截（防止源码、配置、数据文件通过静态服务暴露）
+// 拦截: .env、所有.json、所有.js、所有.sh、data/目录、.vscode/目录、node_modules/目录
+app.use((req, res, next) => {
+  const p = req.path.toLowerCase();
+  if (p.endsWith('.env') || p.endsWith('.json') || p.endsWith('.js') ||
+      p.endsWith('.sh') || p.startsWith('/data/') ||
+      p.startsWith('/.vscode') || p.startsWith('/node_modules')) {
+    return res.status(403).type('text/plain').send('Forbidden');
+  }
+  next();
+});
+
+// 提供静态文件（dotfiles设为deny，拒绝.env等隐藏文件的访问）
+app.use(express.static(path.join(__dirname, './'), { dotfiles: 'deny' }));
+
+// OTA固件升级路由（控制服务端口6002，固件目录: ./OTA/firmware/<设备组ID>/）
+app.use(require('./OTA/ota-routes'));
+
+// 场景自动化模块：挂载CRUD路由，并在本进程（控制服务）启动自动评估引擎
+// （配置服务6001仅挂载路由；引擎仅在此进程运行，避免双进程重复触发场景动作）
+const sceneAutomation = require('./server-auto');
+app.use(sceneAutomation.router);
+sceneAutomation.startEngine();
 
 // 代理设备管理API到配置服务
 function proxyToConfigService(req, res) {
@@ -573,35 +765,49 @@ app.get('/', (req, res) => {
 });
 
 // 接口：手动控制 - 通过TCP/MQTT下发
-app.post('/api/control', (req, res) => {
+app.post('/api/control', async (req, res) => {
   try {
     const { cmd, deviceType, deviceId, category, unitId, unitType } = req.body;
 
     // 输入验证
     if (!validateDeviceCommand(cmd)) {
-      return res.status(400).json({ 
-        code: 400, 
-        msg: '无效的命令，只接受 ON 或 OFF' 
+      return res.status(400).json({
+        code: 400,
+        msg: '无效的命令，只接受 ON、OFF、QUERY 或 AUTO'
       });
     }
 
     if (!deviceType || !deviceId || !category || !unitId || !unitType) {
-      return res.status(400).json({ 
-        code: 400, 
-        msg: '缺少必要的设备参数：deviceType, deviceId, category, unitId, unitType' 
+      return res.status(400).json({
+        code: 400,
+        msg: '缺少必要的设备参数：deviceType, deviceId, category, unitId, unitType'
       });
     }
 
     // 根据unitType决定通信方式
     if (unitType === 'control') {
       // 控制类型：通过TCP/MQTT下发
-      const success = sendMqttControl(cmd, unitId);
+      // 查找单元所属设备组，低功耗DeepSleep设备用retained发布（设备唤醒时接收并清除）
+      let retain = false;
+      try {
+        const devices = await dataManager.getDevices();
+        for (const group of Object.values(devices)) {
+          if (group && Array.isArray(group.units) && group.units.some(u => u.id === unitId)) {
+            retain = !!group.lowPower;
+            break;
+          }
+        }
+      } catch (e) {
+        console.error('查询设备组lowPower标记失败，按常在线设备发送:', e.message);
+      }
+
+      const success = sendMqttControl(cmd, unitId, retain);
       if (success) {
-        res.json({ code: 200, msg: `指令 ${cmd.toUpperCase()} 已通过内网TCP下发到 ${unitId} (type: ${unitType})` });
+        res.json({ code: 200, msg: `指令 ${cmd.toUpperCase()} 已通过内网TCP下发到 ${unitId} (type: ${unitType}${retain ? ', retained' : ''})` });
       } else {
-        res.status(500).json({ 
-          code: 500, 
-          msg: 'MQTT TCP连接失败，指令未发送' 
+        res.status(500).json({
+          code: 500,
+          msg: 'MQTT TCP连接失败，指令未发送'
         });
       }
     } else if (unitType === 'state') {
@@ -680,11 +886,18 @@ app.post('/api/control-slot', async (req, res) => {
 
     // 根据单元类型决定通信方式
     if (deviceInfo.unitType === 'control') {
-      const success = sendMqttControl(cmd, deviceInfo.unitId);
+      // 查找单元所属设备组，低功耗DeepSleep设备用retained发布（设备唤醒时接收并清除）
+      let retain = false;
+      for (const group of Object.values(devices)) {
+        if (group && Array.isArray(group.units) && group.units.some(u => u.id === deviceInfo.unitId)) {
+          retain = !!group.lowPower;
+          break;
+        }
+      }
+      const success = sendMqttControl(cmd, deviceInfo.unitId, retain);
       if (success) {
-        // 更新数据库中的状态
         await dataManager.updateDeviceStatus(slot, cmd);
-        res.json({ code: 200, msg: `指令 ${cmd.toUpperCase()} 已通过内网TCP下发到插槽 ${slot} (type: ${deviceInfo.unitType})` });
+        res.json({ code: 200, msg: `指令 ${cmd.toUpperCase()} 已通过内网TCP下发到插槽 ${slot} (type: ${deviceInfo.unitType}${retain ? ', retained' : ''})` });
       } else {
         res.status(500).json({ 
           code: 500, 
@@ -692,14 +905,48 @@ app.post('/api/control-slot', async (req, res) => {
         });
       }
     } else if (deviceInfo.unitType === 'state') {
-      // 状态类型：通过WebSocket获取，这里只是模拟返回状态查询
-      res.json({ code: 200, msg: `状态查询：插槽 ${slot} (type: ${deviceInfo.unitType})` });
+      // 状态类型：发送QUERY指令触发设备上报状态，同时返回当前缓存值
+      const success = sendMqttControl(cmd, deviceInfo.unitId);
+      
+      const currentValue = cachedStates[slot];
+      const hasValue = currentValue !== undefined && currentValue !== null;
+      const valueType = typeof currentValue;
+      
+      if (success) {
+        res.json({ 
+          code: 200, 
+          msg: hasValue ? `查询指令已发送，当前缓存值：${currentValue}` : `查询指令已发送，暂无缓存数据`,
+          value: hasValue ? currentValue : null,
+          valueType: hasValue ? valueType : null
+        });
+      } else {
+        res.json({ 
+          code: 200, 
+          msg: hasValue ? `MQTT未连接，当前缓存值：${currentValue}` : `MQTT未连接，暂无缓存数据`,
+          value: hasValue ? currentValue : null,
+          valueType: hasValue ? valueType : null
+        });
+      }
     } else if (deviceInfo.unitType === 'text') {
-      // 文本类型：直接返回文本值
-      res.json({ code: 200, msg: `文本值查询：插槽 ${slot} (type: ${deviceInfo.unitType})` });
+      // 文本类型：返回缓存的文本值
+      const currentValue = cachedStates[slot];
+      const hasValue = currentValue !== undefined && currentValue !== null && currentValue !== '';
+      res.json({ 
+        code: 200, 
+        msg: hasValue ? `文本值查询：插槽 ${slot} 当前值为 ${currentValue}` : `文本值查询：插槽 ${slot} 暂无数据`,
+        value: hasValue ? currentValue : '',
+        valueType: typeof currentValue
+      });
     } else if (deviceInfo.unitType === 'data') {
-      // 数据类型：直接返回数值
-      res.json({ code: 200, msg: `数值查询：插槽 ${slot} (type: ${deviceInfo.unitType})` });
+      // 数据类型：返回缓存的数值
+      const currentValue = cachedStates[slot];
+      const hasValue = currentValue !== undefined && currentValue !== null;
+      res.json({ 
+        code: 200, 
+        msg: hasValue ? `数值查询：插槽 ${slot} 当前值为 ${currentValue}` : `数值查询：插槽 ${slot} 暂无数据`,
+        value: hasValue ? currentValue : null,
+        valueType: hasValue ? typeof currentValue : null
+      });
     } else {
       res.status(400).json({ 
         code: 400, 
@@ -845,7 +1092,7 @@ app.get('/api/status', async (req, res) => {
     // 构建在线状态信息
     const onlineStatus = {};
     for (const [unitId, lastActive] of Object.entries(deviceLastActive)) {
-      onlineStatus[unitId] = now - lastActive <= OFFLINE_TIMEOUT;
+      onlineStatus[unitId] = now - lastActive <= getOfflineTimeout(unitId);
     }
     
     res.json({
@@ -3044,7 +3291,12 @@ ${deviceDetails}
 重要说明:
 - 如果指令是"每天"或"每天早上/晚上"，recurring设为"daily"
 - 如果指令是"每周X"，recurring设为"weekly"，并设置weekday为单个值（如"周一"）
-- 如果指令是"每隔X分钟"或"每X小时"，recurring设为"interval"，time设为间隔描述（如"10分钟"），interval设为毫秒数
+- 如果指令是"每隔X分钟"或"每X小时"（以"每"或"每隔"开头），recurring设为"interval"，time设为间隔描述（如"10分钟"），interval设为毫秒数
+- 如果指令是"X分钟后"、"X小时后"、"X秒后"（表示从现在开始的延迟），recurring必须设为"once"，time设为延迟时间（如"5分钟"），**禁止设为interval**
+- 关键区分规则：
+  ✅ "五分钟后开灯" → recurring: "once", time: "5分钟"（一次性，5分钟后执行）
+  ✅ "每五分钟开灯" → recurring: "interval", time: "5分钟", interval: 300000（周期性，每5分钟执行一次）
+  ✅ "每隔五分钟开灯" → recurring: "interval", time: "5分钟", interval: 300000（周期性）
 - 如果没有重复指示，recurring设为"once"
 - daily任务的weekday字段必须设为null
 - 严格按照JSON格式输出，不要包含任何解释文字
@@ -3079,12 +3331,31 @@ ${deviceDetails}
         unitType: parsed.unitType || 'control',
         time: parsed.time || '',
         recurring: parsed.recurring || 'once',
-  weekday: parsed.weekday || null,
-  location: parsed.location || null,
-  interval: parsed.interval || null
-};
+        weekday: parsed.weekday || null,
+        location: parsed.location || null,
+        interval: parsed.interval || null
+      };
 
-      
+      // 验证：如果用户输入包含"后"字（如"五分钟后"、"二十分钟后"），强制修正为一次性相对时间
+      if (text.includes('后')) {
+        // 提取相对时间值（支持阿拉伯数字和中文数字）
+        const relativeTime = extractRelativeTime(text);
+        if (relativeTime) {
+          console.log(`[定时验证] 检测到"后"关键字，修正为一次性相对时间: ${relativeTime}`);
+          validated.recurring = 'once';
+          validated.time = relativeTime;
+          validated.interval = null;
+        }
+      }
+
+      // 验证：如果用户输入包含"每"或"每隔"，确保是interval类型
+      if ((text.includes('每隔') || (text.includes('每') && !text.includes('每天') && !text.includes('每周') && !text.includes('每月') && !text.includes('每年'))) && validated.recurring === 'once') {
+        console.log('[定时验证] 检测到"每/每隔"关键字，将recurring修正为interval');
+        validated.recurring = 'interval';
+      }
+
+      console.log(`[定时验证] 最终结果: recurring=${validated.recurring}, time=${validated.time}`);
+
       // 如果slot不是有效的单元ID，尝试通过设备名查找
       if (validated.slot && !isValidSlotId(validated.slot)) {
         const foundSlot = findSlotByName(validated.slot, validated.device);
@@ -3183,56 +3454,78 @@ function fallbackParseSchedule(text) {
   // 提取时间
   let timeStr = '';
   
-  // 匹配时间格式：
-  // 1. 晚上九点、早上8点、下午3点
-  // 2. 9点、8:00、21:00
-  // 3. 九点、八点半
-  // 4. 上午10点、早晨8点
+  // 首先检查相对时间格式（如 "5分钟后"、"1小时后"、"30秒后"）
+  const relativeTimeMatch = text.match(/(\d+)\s*(分钟|分|小时|时|秒)\s*后/);
+  if (relativeTimeMatch) {
+    const value = parseInt(relativeTimeMatch[1]);
+    const unit = relativeTimeMatch[2];
+    // 设置相对时间格式，convertTimeToDateTime 会处理这个
+    if (unit === '分钟' || unit === '分') {
+      timeStr = `${value}分钟`;
+      recurring = 'once';  // 相对时间通常是一次性的
+    } else if (unit === '小时' || unit === '时') {
+      timeStr = `${value}小时`;
+      recurring = 'once';
+    } else if (unit === '秒') {
+      timeStr = `${value}秒`;
+      recurring = 'once';
+    }
+    console.log(`检测到相对时间: ${timeStr}, recurring: ${recurring}`);
+  }
   
-  const timePatterns = [
-    /(早上|早晨|上午|下午|晚上)?\s*(\d{1,2})(?::(\d{2}))?\s*点(半)?/,
-    /(早上|早晨|上午|下午|晚上)?\s*(\d{1,2}):(\d{2})/,
-    /([零一二三四五六七八九十]+)点(半)?/
-  ];
-  
-  for (const pattern of timePatterns) {
-    const match = text.match(pattern);
-    if (match) {
-      // 确定匹配的是哪个模式
-      let period, hourStr, minuteStr, isHalf;
-      
-      if (pattern === timePatterns[2]) {
-        // 中文数字模式
-        hourStr = match[1];
-        isHalf = match[2] === '半';
-        period = null;
-      } else {
-        period = match[1];
-        hourStr = match[2];
-        minuteStr = match[3];
-        isHalf = match[4] === '半';
+  // 如果没有相对时间，尝试匹配绝对时间格式
+  if (!timeStr) {
+    // 匹配时间格式：
+    // 1. 晚上九点、早上8点、下午3点
+    // 2. 9点、8:00、21:00
+    // 3. 九点、八点半
+    // 4. 上午10点、早晨8点
+    
+    const timePatterns = [
+      /(早上|早晨|上午|下午|晚上)?\s*(\d{1,2})(?::(\d{2}))?\s*点(半)?/,
+      /(早上|早晨|上午|下午|晚上)?\s*(\d{1,2}):(\d{2})/,
+      /([零一二三四五六七八九十]+)点(半)?/
+    ];
+    
+    for (const pattern of timePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        // 确定匹配的是哪个模式
+        let period, hourStr, minuteStr, isHalf;
+        
+        if (pattern === timePatterns[2]) {
+          // 中文数字模式
+          hourStr = match[1];
+          isHalf = match[2] === '半';
+          period = null;
+        } else {
+          period = match[1];
+          hourStr = match[2];
+          minuteStr = match[3];
+          isHalf = match[4] === '半';
+        }
+        
+        // 解析小时
+        let hour = parseInt(hourStr);
+        if (isNaN(hour)) {
+          // 尝试中文数字转换
+          hour = chineseToNumber(hourStr);
+        }
+        
+        // 解析分钟
+        let minute = parseInt(minuteStr) || (isHalf ? 30 : 0);
+        
+        // 根据时段调整小时
+        if (period === '晚上' && hour < 12) hour += 12;
+        if (period === '下午' && hour < 12) hour += 12;
+        // 早上、早晨、上午保持原样（上午10点就是10:00）
+        
+        // 验证时间有效性
+        if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+          timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        }
+        break;
       }
-      
-      // 解析小时
-      let hour = parseInt(hourStr);
-      if (isNaN(hour)) {
-        // 尝试中文数字转换
-        hour = chineseToNumber(hourStr);
-      }
-      
-      // 解析分钟
-      let minute = parseInt(minuteStr) || (isHalf ? 30 : 0);
-      
-      // 根据时段调整小时
-      if (period === '晚上' && hour < 12) hour += 12;
-      if (period === '下午' && hour < 12) hour += 12;
-      // 早上、早晨、上午保持原样（上午10点就是10:00）
-      
-      // 验证时间有效性
-      if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
-        timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-      }
-      break;
     }
   }
   

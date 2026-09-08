@@ -1,5 +1,5 @@
 // server-config.js - 设备配置管理服务
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -86,9 +86,28 @@ async function isUnitIdExists(groupId, unitId) {
   return group.units.some(unit => unit.id === unitId);
 }
 
+// 自动获取服务器IP
+function getServerIP() {
+  try {
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('无法自动获取服务器IP:', error.message);
+  }
+  return '127.0.0.1';
+}
+
 // 配置
-const WEB_PORT = parseInt(process.env.CONFIG_SERVICE_PORT) || 3001;
-const MQTT_SERVER = process.env.MQTT_SERVER || 'mqtt://192.168.6.40:1883';
+const SERVER_IP = process.env.SERVER_IP || getServerIP();
+const WEB_PORT = parseInt(process.env.CONFIG_SERVICE_PORT) || 6002;
+const MQTT_SERVER = process.env.MQTT_SERVER || 'mqtt://192.168.1.40:1883';
 const MQTT_TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || 'iot/device';
 
 // 请求限制配置
@@ -118,8 +137,21 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'config.html'));
 });
 
-// 提供静态文件
-app.use(express.static(path.join(__dirname, './')));
+// 敏感资源访问拦截（防止源码、配置、数据文件通过静态服务暴露）
+// 拦截: .env、所有.json、所有.js、所有.sh、data/目录、.vscode/目录、node_modules/目录
+// 前端仅使用.html页面（CDN/内联资源），不引用本地.js/.css，拦截不影响前端功能
+app.use((req, res, next) => {
+  const p = req.path.toLowerCase();
+  if (p.endsWith('.env') || p.endsWith('.json') || p.endsWith('.js') ||
+      p.endsWith('.sh') || p.startsWith('/data/') ||
+      p.startsWith('/.vscode') || p.startsWith('/node_modules')) {
+    return res.status(403).type('text/plain').send('Forbidden');
+  }
+  next();
+});
+
+// 提供静态文件（dotfiles设为deny，拒绝.env等隐藏文件的访问）
+app.use(express.static(path.join(__dirname, './'), { dotfiles: 'deny' }));
 
 // 接口：获取所有设备配置
 app.get('/api/devices', async (req, res) => {
@@ -180,6 +212,7 @@ app.post('/api/devices', async (req, res) => {
     let displayName = payload.displayName || payload.display_name || payload.groupDisplayName || payload.deviceGroupDisplayName || name;
     let location = payload.location ?? payload.groupLocation ?? payload.group_location ?? null;
     let units = payload.units;
+    const lowPower = payload.lowPower === true;
 
     if (!Array.isArray(units) && Array.isArray(payload.unitList)) {
       units = payload.unitList;
@@ -263,17 +296,22 @@ app.post('/api/devices', async (req, res) => {
       location,  // 添加位置字段
       units
     };
-    
+
     // 如果没有提供位置，则设置为null
     if (location === undefined) {
       newDeviceGroup.location = null;
     }
-    
+
+    // 如果标记为低功耗设备，添加lowPower字段
+    if (lowPower) {
+      newDeviceGroup.lowPower = true;
+    }
+
     devices[name] = newDeviceGroup;
     
     await dataManager.saveDevices(devices);
     
-    logOperation('CREATE_DEVICE_GROUP', `IP: ${clientIP}, Name: ${name}, DisplayName: ${displayName}, Location: ${location || 'null'}, UnitsCount: ${units.length}`);
+    logOperation('CREATE_DEVICE_GROUP', `IP: ${clientIP}, Name: ${name}, DisplayName: ${displayName}, Location: ${location || 'null'}, LowPower: ${lowPower}, UnitsCount: ${units.length}`);
     
     res.json({
       code: 200,
@@ -299,6 +337,7 @@ app.put('/api/devices/:groupName', async (req, res) => {
     let displayName = payload.displayName || payload.display_name || payload.groupDisplayName || payload.deviceGroupDisplayName || name;
     let location = payload.location ?? payload.groupLocation ?? payload.group_location ?? null;
     let units = payload.units;
+    const lowPower = payload.lowPower === true;
 
     if (!Array.isArray(units) && Array.isArray(payload.unitList)) {
       units = payload.unitList;
@@ -365,7 +404,7 @@ app.put('/api/devices/:groupName', async (req, res) => {
       });
     }
     
-    // 更新设备组，保留原始ID
+    // 更新设备组，保留原始ID和扩展字段（如lowPower）
     const updatedDeviceGroup = {
       name,
       displayName,
@@ -373,7 +412,17 @@ app.put('/api/devices/:groupName', async (req, res) => {
       location,  // 添加位置字段
       units
     };
-    
+
+    // lowPower字段：显式传true→写入，显式传false→移除，不传→保留原值
+    if (lowPower) {
+      updatedDeviceGroup.lowPower = true;
+    } else if (payload.lowPower === false) {
+      // 显式取消，不写入
+    } else if (currentGroup.lowPower === true) {
+      // 未传，保留原值
+      updatedDeviceGroup.lowPower = true;
+    }
+
     // 如果没有提供位置，则保留原有位置或设置为null
     if (location === undefined) {
       updatedDeviceGroup.location = currentGroup.location || null;
@@ -388,7 +437,7 @@ app.put('/api/devices/:groupName', async (req, res) => {
     
     await dataManager.saveDevices(devices);
     
-    logOperation('UPDATE_DEVICE_GROUP', `IP: ${clientIP}, OriginalGroup: ${groupName}, UpdatedGroup: ${name}, DisplayName: ${displayName}, Location: ${location || 'null'}, UnitsCount: ${units.length}`);
+    logOperation('UPDATE_DEVICE_GROUP', `IP: ${clientIP}, OriginalGroup: ${groupName}, UpdatedGroup: ${name}, DisplayName: ${displayName}, Location: ${location || 'null'}, LowPower: ${lowPower}, UnitsCount: ${units.length}`);
     
     res.json({
       code: 200,
@@ -448,7 +497,7 @@ app.delete('/api/devices/:groupName', async (req, res) => {
 app.post('/api/devices/:groupName/units', async (req, res) => {
   try {
     const { groupName } = req.params;
-    const { name, status, type } = req.body;  // 不再需要id，由系统生成
+    const { name, status, type, customIcon } = req.body;
     const clientIP = getClientIP(req);
     
     // 输入验证
@@ -509,7 +558,7 @@ app.post('/api/devices/:groupName/units', async (req, res) => {
     }
     
     // 添加新单元
-    const newUnit = { id, name, status, type };
+    const newUnit = { id, name, status, type, customIcon };
     devices[groupName].units.push(newUnit);
     
     await dataManager.saveDevices(devices);
@@ -535,7 +584,7 @@ app.post('/api/devices/:groupName/units', async (req, res) => {
 app.put('/api/devices/:groupName/units/:unitId', async (req, res) => {
   try {
     const { groupName, unitId } = req.params;
-    const { name, status, type } = req.body;
+    const { name, status, type, customIcon } = req.body;
     const clientIP = getClientIP(req);
     
     // 输入验证
@@ -585,12 +634,16 @@ app.put('/api/devices/:groupName/units/:unitId', async (req, res) => {
     const originalUnit = {...devices[groupName].units[unitIndex]};
     
     // 更新单元
-    devices[groupName].units[unitIndex] = {
+    const updatedUnit = {
       ...devices[groupName].units[unitIndex],
       name,
       status,
       type
     };
+    if (customIcon !== undefined && customIcon !== null) {
+      updatedUnit.customIcon = customIcon;
+    }
+    devices[groupName].units[unitIndex] = updatedUnit;
     
     await dataManager.saveDevices(devices);
     
@@ -758,12 +811,19 @@ app.get('/api/all-units', async (req, res) => {
   }
 });
 
+// OTA固件升级路由（固件目录: ./OTA/firmware/<设备组ID>/，接口: /ota/<设备组ID>/version|firmware.bin）
+app.use(require('./OTA/ota-routes'));
+
+// 场景自动化路由（CRUD + 手动触发；自动评估引擎仅在控制服务进程启动，见 server-control-tcp.js）
+app.use(require('./server-auto').router);
+
 // 启动服务
 app.listen(WEB_PORT, '0.0.0.0', () => {
-  console.log(`配置服务启动：http://10.70.33.218:${WEB_PORT}`);
+  console.log(`配置服务启动：http://${SERVER_IP}:${WEB_PORT}`);
   console.log(`MQTT服务器: ${MQTT_SERVER}`);
   console.log(`MQTT主题前缀: ${MQTT_TOPIC_PREFIX}`);
   console.log(`设备配置文件: ./devices.json`);
+  console.log(`OTA固件接口: /ota/<设备组ID>/version | /ota/<设备组ID>/firmware.bin`);
 });
 
 module.exports = app;

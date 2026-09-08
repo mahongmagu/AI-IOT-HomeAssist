@@ -1,5 +1,5 @@
 // server-status-ws.js - WebSocket状态推送服务（外网）
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const WebSocket = require('ws');
 const mqtt = require('mqtt');
 const fs = require('fs');
@@ -18,7 +18,7 @@ console.warn = (...args) => logWithTimestamp(originalConsoleWarn, args);
 console.error = (...args) => logWithTimestamp(originalConsoleError, args);
 
 // 外网MQTT WebSocket服务器配置
-const MQTT_EXTERNAL_WS_SERVER = process.env.MQTT_EXTERNAL_WS_SERVER || 'ws://192.168.1.40:8083/mqtt'; // EMQX WebSocket端口
+const MQTT_EXTERNAL_WS_SERVER = process.env.MQTT_EXTERNAL_WS_SERVER || 'ws://192.168.1.40:8084/mqtt'; // EMQX WebSocket端口
 
 // 自动获取服务器IP
 function getServerIP() {
@@ -44,53 +44,30 @@ function getServerIP() {
 const SERVER_IP = process.env.SERVER_IP || getServerIP();
 const WS_PORT = parseInt(process.env.WS_PORT) || 8084; // 外网WebSocket状态服务端口
 
+// MQTT主题配置（必须在loadDeviceConfigs之前定义）
+const MQTT_TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || 'iot/device';
+const STATE_TOPIC_SUFFIX = 'state'; // 状态主题
+const CTRL_TOPIC_SUFFIX = 'control';   // 控制主题
+const TEXTSETTING_TOPIC_SUFFIX = 'textsetting';  // 文本设置主题
+const DATASETTING_TOPIC_SUFFIX = 'datasetting';  // 数据设置主题
+
+// WebSocket客户端集合（必须在loadDeviceConfigs之前定义）
+let wsClients = new Set();
+
 // 设备配置缓存
 let deviceConfigs = {};
-
-// 加载设备配置
-function loadDeviceConfigs() {
-  try {
-    const data = fs.readFileSync(path.join(__dirname, 'devices.json'), 'utf8');
-    
-    // 检查文件是否为空或不完整
-    if (!data || data.trim() === '') {
-      console.warn('设备配置文件为空，使用上次缓存的配置');
-      return; // 保持原有配置不变
-    }
-    
-    const parsed = JSON.parse(data);
-    // 支持两种数据结构
-    deviceConfigs = parsed.devices || parsed;
-    console.log('设备配置加载完成');
-  } catch (error) {
-    console.error('加载设备配置失败:', error.message);
-    console.warn('使用上次缓存的配置，等待下次文件变化');
-    // 保持原有配置不变，不重置为空对象
-  }
-}
-
-// 监听设备配置文件变化
-fs.watch(path.join(__dirname, 'devices.json'), (eventType) => {
-  if (eventType === 'change') {
-    console.log('检测到设备配置变化，重新加载...');
-    loadDeviceConfigs();
-  }
-});
-
-// 初始化加载设备配置
-loadDeviceConfigs();
 
 // 设备最后活跃时间记录 { unitId: timestamp }
 let deviceLastActive = {};
 
- // 新增：初始化设备活跃时间
- function initDeviceActiveTime() {
+// 初始化设备活跃时间（只对control类型）
+function initDeviceActiveTime() {
    for (const [groupName, groupConfig] of Object.entries(deviceConfigs)) {
      if (groupName === 'lastUpdated') continue;
      
      if (groupConfig && groupConfig.units) {
        for (const unit of groupConfig.units) {
-         if (!deviceLastActive[unit.id]) {
+         if (unit.type === 'control' && !deviceLastActive[unit.id]) {
            deviceLastActive[unit.id] = Date.now();
            console.log(`[离线检测] 初始化设备活跃时间: ${unit.id}`);
          }
@@ -98,14 +75,122 @@ let deviceLastActive = {};
      }
    }
  }
- 
- initDeviceActiveTime();
+
+// 加载设备配置
+function loadDeviceConfigs() {
+  try {
+    const data = fs.readFileSync(path.join(__dirname, 'devices.json'), 'utf8');
+    
+    if (!data || data.trim() === '') {
+      console.warn('设备配置文件为空，使用上次缓存的配置');
+      return;
+    }
+    
+    const parsed = JSON.parse(data);
+    const newConfigs = parsed.devices || parsed;
+    
+    const oldUnits = new Set();
+    for (const [groupName, groupConfig] of Object.entries(deviceConfigs)) {
+      if (groupName === 'lastUpdated' || !groupConfig?.units) continue;
+      for (const unit of groupConfig.units) {
+        oldUnits.add(unit.id);
+      }
+    }
+    
+    deviceConfigs = newConfigs;
+    console.log('设备配置加载完成');
+    
+    initDeviceActiveTime();
+    
+    const newUnits = [];
+    for (const [groupName, groupConfig] of Object.entries(deviceConfigs)) {
+      if (groupName === 'lastUpdated' || !groupConfig?.units) continue;
+      const deviceId = groupConfig.id || groupName;
+      for (const unit of groupConfig.units) {
+        if (!oldUnits.has(unit.id)) {
+          newUnits.push({
+            groupName,
+            deviceId,
+            unit
+          });
+        }
+      }
+    }
+    
+    if (newUnits.length > 0) {
+      console.log(`检测到 ${newUnits.length} 个新设备单元，正在通知所有客户端...`);
+      for (const { groupName, deviceId, unit } of newUnits) {
+        const stateUpdate = {
+          type: 'state-update',
+          device: {
+            type: groupName,
+            id: deviceId,
+            category: 'relay',
+            unit: unit.id,
+            unitType: unit.type || 'control'
+          },
+          state: (unit.status !== undefined && unit.status !== null) ? unit.status : 'OFF',
+          topic: `${MQTT_TOPIC_PREFIX}/${unit.id}/state`,
+          timestamp: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+        };
+        
+        for (const client of wsClients) {
+          try {
+            client.send(JSON.stringify(stateUpdate));
+          } catch (error) {
+            console.error('推送新设备状态失败:', error.message);
+          }
+        }
+        
+        console.log(`  已推送新设备: ${unit.id} (${unit.name})`);
+      }
+    }
+  } catch (error) {
+    console.error('加载设备配置失败:', error.message);
+    console.warn('使用上次缓存的配置，等待下次文件变化');
+  }
+}
+
+// 监听设备配置文件变化（监听目录而非文件，避免rename导致inotify失效）
+let configReloadTimer = null;
+function watchDevicesFile() {
+  try {
+    // 监听目录而非文件
+    const dirPath = path.join(__dirname);
+    fs.watch(dirPath, (eventType, filename) => {
+      // 过滤掉临时文件
+      if (filename === 'devices.json.tmp') return;
+      
+      // 处理change和rename事件（原子写入会触发rename事件）
+      if ((eventType === 'change' || eventType === 'rename') && filename === 'devices.json') {
+        console.log('检测到设备配置变化，正在更新缓存...');
+        
+        // 防抖：如果在50ms内再次触发，则重新计时
+        if (configReloadTimer) {
+          clearTimeout(configReloadTimer);
+        }
+        
+        configReloadTimer = setTimeout(() => {
+          loadDeviceConfigs();
+        }, 50);
+      }
+    });
+  } catch (error) {
+    console.error('无法监听设备配置文件:', error);
+  }
+}
+
+// 启动配置监听
+watchDevicesFile();
+
+// 初始化加载设备配置
+loadDeviceConfigs();
 
 
 // MQTT连接选项（外网WebSocket）
 const mqttOptions = {
-  username: process.env.MQTT_USERNAME || 'username',
-  password: process.env.MQTT_PASSWORD || 'your-mqtt-password',
+  username: process.env.MQTT_USERNAME || 'xxxx',
+  password: process.env.MQTT_PASSWORD || 'xxxxxxxx',
   clientId: `iot-ws-${Math.random().toString(16).substr(2, 8)}`,
   clean: true,
   connectTimeout: 4000,
@@ -114,31 +199,60 @@ const mqttOptions = {
   protocolVersion: 4
 };
 
-// MQTT主题配置
-const MQTT_TOPIC_PREFIX = process.env.MQTT_TOPIC_PREFIX || 'iotxxx/devicename';
-const STATE_TOPIC_SUFFIX = 'state'; // 状态主题
-const CTRL_TOPIC_SUFFIX = 'control';   // 控制主题
-const TEXTSETTING_TOPIC_SUFFIX = 'textsetting';  // 文本设置主题
-const DATASETTING_TOPIC_SUFFIX = 'datasetting';  // 数据设置主题
-
-// WebSocket客户端集合
-let wsClients = new Set();
-
 // 从环境变量读取离线检测配置
 const OFFLINE_TIMEOUT = parseInt(process.env.OFFLINE_TIMEOUT) || 5 * 60 * 1000; // 默认5分钟
 const CHECK_INTERVAL = parseInt(process.env.CHECK_INTERVAL) || 30 * 1000; // 默认30秒
 
-// 更新设备活跃时间
+// 获取设备的离线超时时间
+// lowPower设备：3倍唤醒周期（分钟→毫秒），兜底使用OFFLINE_TIMEOUT
+// 普通设备：OFFLINE_TIMEOUT
+function getOfflineTimeout(unitId) {
+  for (const [groupName, groupConfig] of Object.entries(deviceConfigs)) {
+    if (groupName === 'lastUpdated' || !groupConfig?.units) continue;
+    if (groupConfig.lowPower === true) {
+      // 查找该设备组中是否有此unitId
+      const unit = groupConfig.units.find(u => u.id === unitId);
+      if (unit) {
+        // 查找"唤醒时间"data单元
+        const wakeupUnit = groupConfig.units.find(u =>
+          u.name === '唤醒时间' || u.id.includes('huanxingshijian')
+        );
+        if (wakeupUnit && wakeupUnit.status) {
+          const wakeMinutes = parseInt(wakeupUnit.status) || 5;
+          return wakeMinutes * 3 * 60 * 1000; // 3倍唤醒周期（毫秒）
+        }
+        return OFFLINE_TIMEOUT * 3; // 有lowPower标记但无唤醒时间，兜底3倍默认超时
+      }
+    }
+  }
+  return OFFLINE_TIMEOUT;
+}
+
+// 更新设备活跃时间（只对control类型）
 function updateDeviceActive(unitId) {
-  deviceLastActive[unitId] = Date.now();
+  // 只记录control类型设备的活跃时间，不监测非control类型的离线状态
+  let isControl = false;
+  for (const [groupName, groupConfig] of Object.entries(deviceConfigs)) {
+    if (groupConfig && groupConfig.units) {
+      const unit = groupConfig.units.find(u => u.id === unitId);
+      if (unit) {
+        isControl = unit.type === 'control';
+        break;
+      }
+    }
+  }
+  if (isControl) {
+    deviceLastActive[unitId] = Date.now();
+  }
 }
 
 // 检查设备是否离线
 function checkOfflineDevices() {
   const now = Date.now();
-  
+
   for (const [unitId, lastActive] of Object.entries(deviceLastActive)) {
-    if (now - lastActive > OFFLINE_TIMEOUT) {
+    const timeout = getOfflineTimeout(unitId);
+    if (now - lastActive > timeout) {
       // 设备离线
       console.log(`设备离线: ${unitId}`);
       broadcastOfflineStatus(unitId);
@@ -186,7 +300,7 @@ function broadcastOfflineStatus(unitId) {
 
 // 启动定时检查
 setInterval(checkOfflineDevices, CHECK_INTERVAL);
-console.log(`设备离线检测已启动 - 超时时间: ${OFFLINE_TIMEOUT / 1000}秒, 检查间隔: ${CHECK_INTERVAL / 1000}秒`);
+console.log(`设备离线检测已启动 - 普通设备超时: ${OFFLINE_TIMEOUT / 1000}秒, lowPower设备: 3倍唤醒周期, 检查间隔: ${CHECK_INTERVAL / 1000}秒`);
 
 // 创建MQTT WebSocket客户端（外网）
 const mqttClient = mqtt.connect(MQTT_EXTERNAL_WS_SERVER, mqttOptions);
@@ -237,7 +351,7 @@ function sendInitialDeviceStates(ws) {
             unit: unit.id,
             unitType: unit.type || 'control'
           },
-          state: unit.status || 'OFF',
+          state: (unit.status !== undefined && unit.status !== null) ? unit.status : 'OFF',
           topic: `${MQTT_TOPIC_PREFIX}/${groupName}/${deviceId}/relay/${unit.id}/state`,
           timestamp: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
         };
@@ -252,7 +366,7 @@ function sendInitialDeviceStates(ws) {
 mqttClient.on('connect', () => {
   console.log('MQTT WebSocket状态客户端（外网）连接成功');
   
-  // 订阅状态主题：iotxxx/devicename/设备单元ID/state
+  // 订阅状态主题：iot/device/设备单元ID/state
   const stateTopicPattern = `${MQTT_TOPIC_PREFIX}/+/${STATE_TOPIC_SUFFIX}`;
   mqttClient.subscribe(stateTopicPattern, { qos: 1 }, (err) => {
     if (err) {
@@ -262,7 +376,7 @@ mqttClient.on('connect', () => {
     }
   });
   
-  // 订阅文本设置主题：iotxxx/devicename/设备单元ID/textsetting
+  // 订阅文本设置主题：iot/device/设备单元ID/textsetting
   const textsettingTopicPattern = `${MQTT_TOPIC_PREFIX}/+/${TEXTSETTING_TOPIC_SUFFIX}`;
   mqttClient.subscribe(textsettingTopicPattern, { qos: 1 }, (err) => {
     if (err) {
@@ -272,7 +386,7 @@ mqttClient.on('connect', () => {
     }
   });
   
-  // 订阅数据设置主题：iotxxx/devicename/设备单元ID/datasetting
+  // 订阅数据设置主题：iot/device/设备单元ID/datasetting
   const datasettingTopicPattern = `${MQTT_TOPIC_PREFIX}/+/${DATASETTING_TOPIC_SUFFIX}`;
   mqttClient.subscribe(datasettingTopicPattern, { qos: 1 }, (err) => {
     if (err) {
@@ -290,7 +404,7 @@ mqttClient.on('message', (topic, message) => {
   // 解析主题，提取设备信息
   const topicParts = topic.split('/');
   
-  // 新格式：iotxxx/devicename/设备单元ID/主题类型(state/textsetting/datasetting)
+  // 新格式：iot/device/设备单元ID/主题类型(state/textsetting/datasetting)
   if (topicParts.length === 4) {
     const unitId = topicParts[2];
     const topicType = topicParts[3];
@@ -321,6 +435,14 @@ mqttClient.on('message', (topic, message) => {
       }
     }
     
+    // 尝试解析消息值，保留原始类型（数字、字符串、布尔值等）
+    let stateValue;
+    try {
+      stateValue = JSON.parse(message.toString());
+    } catch {
+      stateValue = message.toString();
+    }
+    
     // 构造状态更新消息
     const stateUpdate = {
       type: 'state-update',
@@ -332,7 +454,7 @@ mqttClient.on('message', (topic, message) => {
         unitType: unitType,
         topicType: topicType  // 新增：标识状态来源主题类型
       },
-      state: message.toString(),
+      state: stateValue,
       topic: topic,
       timestamp: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
     };

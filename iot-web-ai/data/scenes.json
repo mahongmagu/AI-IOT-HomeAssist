@@ -1,0 +1,63 @@
+{
+  "scenes": {
+    "scene_1788839739347_8c37": {
+      "id": "scene_1788839739347_8c37",
+      "name": "test",
+      "description": "test",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "c_17888397272023db",
+          "unitId": "keting-wdj-46716033_wdcgq-8684",
+          "unitName": "温度传感器",
+          "unitType": "state",
+          "operator": ">=",
+          "value": "28",
+          "logic": "AND"
+        }
+      ],
+      "actions": [
+        {
+          "id": "a_1788839735796f82",
+          "type": "control",
+          "unitId": "keting-AC-23343313_kg01-6432",
+          "unitName": "kg01",
+          "value": "ON"
+        }
+      ],
+      "createdAt": "2026-09-08T03:55:39.347Z",
+      "updatedAt": "2026-09-08T03:57:39.191Z",
+      "lastTriggered": "2026-09-08T03:56:50.166Z"
+    },
+    "scene_1788839900752_d77d": {
+      "id": "scene_1788839900752_d77d",
+      "name": "test1",
+      "description": "test1",
+      "enabled": true,
+      "conditions": [
+        {
+          "id": "c_17888398924389a0",
+          "unitId": "keting-wdj-46716033_wdcgq-8684",
+          "unitName": "温度传感器",
+          "unitType": "state",
+          "operator": "<=",
+          "value": "26",
+          "logic": "AND"
+        }
+      ],
+      "actions": [
+        {
+          "id": "a_1788839899564251",
+          "type": "control",
+          "unitId": "keting-AC-23343313_kg01-6432",
+          "unitName": "kg01",
+          "value": "OFF"
+        }
+      ],
+      "createdAt": "2026-09-08T03:58:20.752Z",
+      "updatedAt": "2026-09-08T03:59:06.631Z",
+      "lastTriggered": "2026-09-08T03:59:12.917Z"
+    }
+  },
+  "lastUpdated": "2026-09-08T03:59:12.917Z"
+}

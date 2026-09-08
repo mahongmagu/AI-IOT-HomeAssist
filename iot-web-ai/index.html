@@ -289,6 +289,8 @@ body {
 .unit-btn.off { background: #dc3545; color: white; }
 .unit-btn.query { background: #17a2b8; color: white; }
 .unit-btn.edit { background: #6c757d; color: white; }
+.unit-btn.auto { background: #fd7e14; color: white; }
+.unit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* 定时任务列表 */
 .unit-schedules {
@@ -987,6 +989,27 @@ function connectWebSocket() {
               foundGroup = groupName;
               break;
             }
+          }
+          
+          if (!foundGroup) {
+            console.log(`收到未知设备单元的状态更新: ${unitId}，正在刷新配置...`);
+            fetch(api + '/config').then(res => {
+              if (res.ok) {
+                return res.json();
+              }
+            }).then(configData => {
+              if (configData) {
+                allDeviceConfigs = configData.configs || configData || {};
+                console.log('配置刷新完成，重新渲染设备列表');
+                if (currentView === 'overview') {
+                  renderDeviceGrid();
+                } else if (currentDeviceGroup) {
+                  loadDeviceDetail(currentDeviceGroup);
+                }
+              }
+            }).catch(e => {
+              console.error('刷新配置失败:', e);
+            });
           }
           
           const deviceKey = foundGroup ? 
@@ -1794,12 +1817,27 @@ function renderDeviceDetail(groupName, schedules) {
     let actionBtn = '';
     if (unit.type === 'control') {
       actionBtn = `<button class="unit-btn ${status === 'ON' ? 'off' : 'on'}" onclick="toggleUnit('${unit.id}', '${groupName}')">${status === 'ON' ? '关闭' : '打开'}</button>`;
+      // 低功耗设备（如AC01）支持手动模式，增加"恢复自动"按钮退出手动模式
+      // 按钮启用状态跟随"控制模式"单元上报的值：自动=禁用，手动=可用
+      if (config.lowPower === true) {
+        const modeUnit = config.units.find(u => u.name === '控制模式');
+        let modeStatus = '自动';
+        if (modeUnit) {
+          const modeKey = `${groupName}/${deviceId}/relay/${modeUnit.id}`;
+          modeStatus = String(allDevices[modeKey]?.state ?? modeUnit.status ?? '自动');
+        }
+        const isManual = modeStatus.startsWith('手动');
+        actionBtn += ` <button class="unit-btn auto" onclick="restoreAuto('${unit.id}', '${groupName}')"${isManual ? '' : ' disabled'}>恢复自动</button>`;
+      }
     } else if (unit.type === 'state') {
       actionBtn = `<button class="unit-btn query" onclick="queryState('${unit.id}', '${groupName}')">查询状态</button>`;
     } else if (unit.type === 'text') {
       actionBtn = `<button class="unit-btn edit" onclick="editTextValue('${unit.id}', '${unit.name}', '${status}')">编辑文本</button>`;
     } else if (unit.type === 'data') {
-      actionBtn = `<button class="unit-btn edit" onclick="editDataValue('${unit.id}', '${unit.name}', '${status}')">编辑数值</button>`;
+      // "控制模式"为设备自报的只读模式标识，不提供编辑按钮
+      if (unit.name !== '控制模式') {
+        actionBtn = `<button class="unit-btn edit" onclick="editDataValue('${unit.id}', '${unit.name}', '${status}')">编辑数值</button>`;
+      }
     }
     
     // 获取该设备单元的定时任务，兼容 unitId 可能带前缀/空白的情况
@@ -1937,6 +1975,30 @@ function toggleUnit(unitId, groupName) {
   });
 }
 
+// 恢复自动温控：发送AUTO指令（低功耗DeepSleep设备退出手动模式）
+// 服务端检测到lowPower设备组后以retained发布，设备下个唤醒周期接收执行
+function restoreAuto(unitId, groupName) {
+  if (!confirm('确定恢复自动温控模式？\n手动模式将被退出，温控触发锁存状态保留。')) return;
+
+  fetch(api + '/control-slot', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slot: unitId, cmd: 'AUTO' })
+  }).then(res => {
+    if (!res.ok) {
+      return res.text().then(text => {
+        throw new Error(`服务器返回错误: ${res.status} - ${text.substring(0, 100)}`);
+      });
+    }
+    return res.json();
+  }).then(data => {
+    alert('恢复自动指令已发送，设备将在下次唤醒时执行（最迟一个唤醒周期）');
+  }).catch(e => {
+    console.error('恢复自动失败:', e);
+    alert(`恢复自动失败: ${e.message}`);
+  });
+}
+
 function toggleAllUnits(event, groupName) {
   // 阻止事件传播到父级
   event.stopPropagation();
@@ -1971,6 +2033,59 @@ function toggleAllUnits(event, groupName) {
 }
 
 function queryState(unitId, groupName) {
+  const config = allDeviceConfigs[groupName];
+  const deviceId = config?.id || groupName;
+  const key = `${groupName}/${deviceId}/relay/${unitId}`;
+  
+  const deviceData = allDevices[key];
+  const online = deviceOnlineStatus[unitId];
+  
+  const currentCachedValue = deviceData?.state;
+  const hasCachedValue = currentCachedValue !== undefined && currentCachedValue !== null;
+  const onlineText = online === false ? '（离线）' : '';
+  
+  if (hasCachedValue) {
+    const valueType = typeof currentCachedValue;
+    console.log(`[查询状态] 设备 ${unitId} 当前缓存值：${currentCachedValue} (${valueType})`);
+  }
+  
+  let responseReceived = false;
+  let timeoutTimer = null;
+  
+  const handleStateUpdate = (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      if (message.type === 'state-update' && message.device.unit === unitId) {
+        responseReceived = true;
+        clearTimeout(timeoutTimer);
+        
+        ws.removeEventListener('message', handleStateUpdate);
+        
+        const newValue = message.state;
+        const newValueType = typeof newValue;
+        alert(`设备 "${unitId}" 查询结果：${newValue}\n类型：${newValueType}${onlineText}`);
+      }
+    } catch (e) {
+      console.error('解析WebSocket消息失败:', e);
+    }
+  };
+  
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.addEventListener('message', handleStateUpdate);
+    
+    timeoutTimer = setTimeout(() => {
+      responseReceived = true;
+      ws.removeEventListener('message', handleStateUpdate);
+      
+      if (hasCachedValue) {
+        const valueType = typeof currentCachedValue;
+        alert(`设备 "${unitId}" 未响应查询，当前缓存值：${currentCachedValue}\n类型：${valueType}${onlineText}`);
+      } else {
+        alert(`设备 "${unitId}" 未响应查询，暂无数据${onlineText}`);
+      }
+    }, 5000);
+  }
+  
   fetch(api + '/control-slot', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1983,9 +2098,21 @@ function queryState(unitId, groupName) {
     }
     return res.json();
   }).then(data => {
-    alert(data.msg);
+    if (!responseReceived) {
+      console.log('[查询状态] 查询指令已发送，等待设备响应...');
+    }
   }).catch(e => {
-    alert(`查询失败: ${e.message}`);
+    clearTimeout(timeoutTimer);
+    if (ws) {
+      ws.removeEventListener('message', handleStateUpdate);
+    }
+    
+    if (hasCachedValue) {
+      const valueType = typeof currentCachedValue;
+      alert(`设备 "${unitId}" 查询失败，当前缓存值：${currentCachedValue}\n类型：${valueType}${onlineText}\n${e.message}`);
+    } else {
+      alert(`查询失败: ${e.message}`);
+    }
   });
 }
 
@@ -2089,6 +2216,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   renderDeviceGrid();
   connectWebSocket();
+  
+  // 定期刷新设备配置（每30秒），确保新添加的设备能被识别
+  setInterval(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await fetch(api + '/config');
+      if (res.ok) {
+        const configData = await res.json();
+        const newConfigs = configData.configs || {};
+        
+        let hasChanges = false;
+        
+        // 检查是否有新设备组
+        const oldGroups = new Set(Object.keys(allDeviceConfigs));
+        const newGroups = new Set(Object.keys(newConfigs));
+        const addedGroups = [...newGroups].filter(g => !oldGroups.has(g));
+        
+        if (addedGroups.length > 0) {
+          console.log(`检测到新设备组: ${addedGroups.join(', ')}`);
+          hasChanges = true;
+        }
+        
+        // 检查是否有新设备单元
+        for (const [groupName, newConfig] of Object.entries(newConfigs)) {
+          const oldConfig = allDeviceConfigs[groupName];
+          if (oldConfig && newConfig.units) {
+            const oldUnitIds = new Set(oldConfig.units?.map(u => u.id) || []);
+            const newUnitIds = new Set(newConfig.units.map(u => u.id));
+            const addedUnits = [...newUnitIds].filter(id => !oldUnitIds.has(id));
+            if (addedUnits.length > 0) {
+              console.log(`设备组 ${groupName} 检测到新设备单元: ${addedUnits.join(', ')}`);
+              hasChanges = true;
+            }
+          }
+        }
+        
+        if (hasChanges) {
+          allDeviceConfigs = newConfigs;
+          if (currentView === 'overview') {
+            renderDeviceGrid();
+          } else if (currentDeviceGroup && newConfigs[currentDeviceGroup]) {
+            loadDeviceDetail(currentDeviceGroup);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('定期刷新配置失败:', e);
+    }
+  }, 30000);
 });
 </script>
 </body>
