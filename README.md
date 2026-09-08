@@ -10,7 +10,7 @@ AI-IOT-HomeAssist是基于AI控制的智能控制系统，可广泛应用于IOT�
 
 ## 原型说明可参照
 
-[IoT自建MQTT远程控制系统完整项目包]: (IoT自建MQTT远程控制系统完整项目包.docx).
+[IoT自建MQTT远程控制系统完整项目包]: (IoT自建MQTT远程控制系统完整项目包.docx)
 
 
 
